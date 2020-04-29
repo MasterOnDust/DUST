@@ -140,7 +140,7 @@ def read_trajectories(output_dir, nclusters=5):
             cluster_list.append(cn + '(' +str(i)+ ')')
 
 
-    cols = ['release number', 'seconds prior to release', 'lon', 'lat',
+    cols = ['release number', 'time', 'lon', 'lat',
          'height', 'mean topography',
          'mean mixing height', 'mean tropopause height', 'mean PV index',
          'rms distance', 'rms', 'zrms distance', 'zrms',
@@ -153,11 +153,10 @@ def read_trajectories(output_dir, nclusters=5):
     df = pd.read_csv(output_dir + 'trajectories.txt', sep='\s+',
                     skiprows=lambda x: x <24, names=cols)
     
-    sec_p_rel = df['seconds prior to release']
+    sec_p_rel = df['time']
     time_p_rel = s_time + pd.to_timedelta(sec_p_rel, unit = 's')
-    df['time'] = time_p_rel
-    df.index = df['time']
-    df = df.drop(['seconds prior to release', 'time'], axis=1)
+    df.index = time_p_rel
+    df = df.drop(['time'], axis=1)
     return df
 
 
