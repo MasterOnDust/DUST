@@ -12,7 +12,7 @@ AUTHOR:
 """
 import pandas as pd
 import xarray as xr
-
+from IPython import embed 
 
 """
 DESCIRPTION:
@@ -81,13 +81,13 @@ def read_release_namelist(output_dir):
     return relLocactions
 
 """
-DESCRIPTION
+DESCRIPTION:
 ===========
 
     Reads the OUTGRID.namelist file in the output directory and  
     returns the data as python dictionary.
 
-USAGE
+USAGE:
 =====
 
     outGrid = read_outGrid_namelist(output_dir)
@@ -146,8 +146,20 @@ def read_trajectories(output_dir, nclusters=5):
          'rms distance', 'rms', 'zrms distance', 'zrms',
          'fraction mixing layer', 'fraction PV<2pvu',
          'fraction in troposphere'] + cluster_list
-
+    trajecFile = open(output_dir + 'trajectories.txt', 'r')
+    header = trajecFile.readline().split(' ')
+    s_time = pd.to_datetime(header[0] + header[1])
 
     df = pd.read_csv(output_dir + 'trajectories.txt', sep='\s+',
                     skiprows=lambda x: x <24, names=cols)
+    
+    sec_p_rel = df['seconds prior to release']
+    time_p_rel = s_time + pd.to_timedelta(sec_p_rel, unit = 's')
+    df['time'] = time_p_rel
+    df.index = df['time']
+    df = df.drop(['seconds prior to release', 'time'], axis=1)
     return df
+
+
+if __name__ == "__main__":
+    df = read_trajectories('/opt/uio/flexpart/Compleated_runs/20190306_15/output/')
