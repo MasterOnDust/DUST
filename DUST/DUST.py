@@ -11,6 +11,14 @@ import matplotlib as mpl
 import numpy as np
 import sys
 from IPython import embed
+from utils.maps import base_map_func
+from utils.utils import _gen_log_clevs, _gen_flexpart_colormap
+import matplotlib as mpl
+
+mpl.rcParams['axes.titlesize'] = 'xx-large'
+mpl.rcParams['axes.labelsize'] = 'x-large'
+mpl.rcParams['xtick.labelsize'] = 'large'
+mpl.rcParams['ytick.labelsize'] = 'large'
 #Note Does not work with nested output yet!
 
 
@@ -37,53 +45,110 @@ def read_out_directory(output_dir, nclusters=5):
     
     return outs
 
-@xr.register_dataset_accessor('dust')
+@xr.register_dataset_accessor('fp')
 class DUST:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
 
-    def plot_emission_sensitivity(self,pointspec ,
+    
+    def plot_total_column(self,pointspec, **kwargs):
+        fig, ax = plot_emission_sensitivity(pointspec,height=None, **kwargs)
+
+
+    def plot_emission_sensitivity(self,pointspec, height,
+                                    plotting_method = 'pcolormesh',
+                                    log = True,
+                                    vmin = None,
+                                    vmax = None,
                                     figure=None,
-                                    height = None ,
+                                    ax =None,
                                     title=None,
                                     extent = None, 
-                                    cmap ='YlOrBr'):
+                                    cmap =None):
+        ax = ax
         units = self._obj['spec001_mr'].units
         data = self._obj['spec001_mr'][:,pointspec,:,:,:,:]
         if height == None:
-            data = data.sum(dim = 'height') 
+            data = data.sum(dim = 'height')
+            data = data.sum(dim = 'time')
+            data = data[0,:,:]
+ 
         else:
             height_index = np.argwhere(self._obj.height.values == height)
             if height_index.shape[1] == 0:
-                raise IndexError
+                raise ValueError("height param {} is not a valid one.".format(height))
+
             height_index = np.reshape(height_index, height_index.shape[1])
             data = data[:,:,height_index,:,:]
-    
-        data = data.sum(dim = 'time')
+            data = data.sum(dim = 'time')
+            data = data[0,0,:,:]
 
         lons = self._obj.longitude
         lats = self._obj.latitude
-        
         if figure == None:
             fig = plt.figure()
         else:
             fig = figure
-        ax = plt.axes(projection=ccrs.PlateCarree())
+        
+        if ax == None:
+            ax = base_map_func()
+            
+        if extent == None and ax.get_extent() == None:
+            ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
+        elif extent ==None:
+            pass
+        else:
+            ax.set_extent(extent)
+        if cmap == None:
+            cmap = _gen_flexpart_colormap()
+        else:
+            cmap = cmap
 
-        if extent == None:
-            ax.set_extent()
-        data = data[0,0,:,:]
+        if vmin  ==None and vmax == None:
+            dat_min = data.min()
+            dat_max = data.max()
+        elif vmin != None and vmax == None:
+            dat_min = vmin
+            dat_max = data.max()
+        elif vmin == None and vmax != None:
+            dat_min = data.min()
+            dat_max = vmax
+        else:
+            dat_max = vmax
+            dat_min = vmin
 
-        # embed()
-        im = ax.contourf(lons, lats, data, transform  = ccrs.PlateCarree(),levels=10, norm=mpl.colors.LogNorm(), cmap = cmap,
-                        vmin = 0.001)
-        ax.coastlines()
-        # ax.add_feature(land_50m)
-        ax.add_feature(cr.feature.BORDERS)
-        gl = ax.gridlines(crs = ccrs.PlateCarree(), draw_labels = True, color = 'grey', alpha = 0.6, linestyle = '--')
-        gl.xlabels_top = False; gl.ylabels_right = False
+        if log:
+            levels = _gen_log_clevs(dat_min, dat_max)
+            norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
+        else:
+            levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
+            norm = None
+
+        if plotting_method == 'pcolormesh':
+            im = ax.pcolormesh(lons, lats, data, transform  = ccrs.PlateCarree(),
+                    norm=norm, 
+                    cmap = cmap)
+        elif plotting_method =='contourf':
+            im = ax.contourf(lons,lats, data, transform  = ccrs.PlateCarree(),
+                    norm=norm, 
+                    cmap = cmap, levels=levels)
+        else:
+            raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
+            
+        im.cmap.set_over(color='k', alpha=0.8)
+
         cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-        plt.colorbar(im,cax=cax,label = units, extend='max')
+        clabels = list(levels[::10])  # #clevs, by 10 steps
+        clabels.append(levels[-1])  # add the last label
+
+        cb = plt.colorbar(im,cax=cax,label = units, extend = 'max')
+        cb.ax.set_ticks(np.linspace(0, 1, len(clabels)))
+        cb.ax.set_yticklabels(['%3.2g' % cl for cl in clabels])
+
+        plt.axes(ax)
         return fig, ax
         
 
+if __name__ == "__main__":
+    dset = xr.open_dataset('/opt/uio/flexpart/Compleated_runs/20190306_15/output/grid_time_20190306150000.nc')
+    dset.dust.plot_emission_sensitivity(1, height=100)
