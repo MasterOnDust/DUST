@@ -154,7 +154,6 @@ class FLEXPART:
         cb.set_ticks(clabels)
 
         cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
-        # cb.ax.yaxis.set_ticks(levels, minor=True)
         cb.ax.minorticks_on()
 
         plt.axes(ax)
@@ -164,12 +163,24 @@ class FLEXPART:
         rel_start = start_date + self._obj.RELSTART[pointspec].values
         rel_end = start_date + self._obj.RELEND[pointspec].values
         rel_part = self._obj.RELPART[pointspec].values
-        info_str = ('Release start : {}\n'.format(rel_start.strftime(format='%d/%m/%y %H:%M')) +
+        info_str = ('FLEXPART {}\n'.format(self._obj.source[:25].strip()) +
+                    'Release start : {}\n'.format(rel_start.strftime(format='%d/%m/%y %H:%M')) +
                     'Release end : {}\n'.format(rel_end.strftime(format = '%d/%m/%y %H:%M')) +
-                    'Particles released : {:.2E}\n'.format(rel_part))
-        bbox={'facecolor':'lightpink', 'alpha':0.5, 'pad':10}
-        anc_text = AnchoredText(info_str, loc=info_loc ,bbox_transform=ax.transAxes,prop=dict(size=8))
+                    'Particles released : {:.2E}'.format(rel_part) 
+                    )
 
+        anc_text = AnchoredText(info_str, loc=info_loc ,bbox_transform=ax.transAxes,prop=dict(size=8))
+        ax.add_artist(anc_text)
+
+        if title != None:
+            ax.set_title(title)
+        else:
+            if self._obj.ldirect == -1: 
+                ax.set_title('FLEXPART backward trajectory simulation starting at {} UTC'.format(start_date.strftime(format= '%b %d %Y %H%M'))
+                ,fontsize=16)
+            else:
+                ax.set_title('FLEXPART forward trajectory simulation starting at {} UTC'.format(start_date.strftime(format= '%b %d %Y %H%M'))
+                ,fontsize=16)
         return fig, ax
 
 

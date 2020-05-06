@@ -7,7 +7,7 @@ import matplotlib.patheffects as PathEffects
 from shapely.geometry import LineString, MultiLineString
 import cartopy as cr
 import matplotlib.colors as mcolors
-
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 
 """
@@ -95,6 +95,8 @@ def tracing_the_winds_map(figsize = (12,10)):
     gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
     gl.xlabels_top = False
     gl.ylabels_right = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
     return fig, ax
 
 def base_map_func():
@@ -104,5 +106,8 @@ def base_map_func():
     ax.add_feature(cr.feature.BORDERS)
     gl = ax.gridlines(crs = ccrs.PlateCarree(), draw_labels = True, color = 'grey', alpha = 0.6, linestyle = '--')
     gl.xlabels_top = False; gl.ylabels_right = False
+
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
 
     return ax
