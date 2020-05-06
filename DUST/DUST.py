@@ -6,6 +6,7 @@ from xarray import Dataset
 import cartopy as cr
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredText
 from utils.read_output import *
 import matplotlib as mpl
 import numpy as np
@@ -46,7 +47,7 @@ def read_out_directory(output_dir, nclusters=5):
     return outs
 
 @xr.register_dataset_accessor('fp')
-class DUST:
+class FLEXPART:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
 
@@ -57,6 +58,7 @@ class DUST:
 
     def plot_emission_sensitivity(self,pointspec, height,
                                     plotting_method = 'pcolormesh',
+                                    info_loc = 'lower right',
                                     log = True,
                                     vmin = None,
                                     vmax = None,
@@ -85,6 +87,11 @@ class DUST:
 
         lons = self._obj.longitude
         lats = self._obj.latitude
+        lon0 = self._obj.RELLNG1[pointspec]
+        lat0 = self._obj.RELLAT1[pointspec]
+
+
+
         if figure == None:
             fig = plt.figure()
         else:
@@ -134,6 +141,8 @@ class DUST:
                     cmap = cmap, levels=levels)
         else:
             raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
+
+        ax.scatter(lon0, lat0, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
             
         im.cmap.set_over(color='k', alpha=0.8)
 
@@ -142,13 +151,38 @@ class DUST:
         clabels.append(levels[-1])  # add the last label
 
         cb = plt.colorbar(im,cax=cax,label = units, extend = 'max')
-        cb.ax.set_ticks(np.linspace(0, 1, len(clabels)))
-        cb.ax.set_yticklabels(['%3.2g' % cl for cl in clabels])
+        cb.set_ticks(clabels)
+
+        cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
+        # cb.ax.yaxis.set_ticks(levels, minor=True)
+        cb.ax.minorticks_on()
 
         plt.axes(ax)
+
+        # Create simulation info string 
+        start_date = pd.to_datetime(self._obj.iedate + self._obj.ietime, yearfirst=True)
+        rel_start = start_date + self._obj.RELSTART[pointspec].values
+        rel_end = start_date + self._obj.RELEND[pointspec].values
+        rel_part = self._obj.RELPART[pointspec].values
+        info_str = ('Release start : {}\n'.format(rel_start.strftime(format='%d/%m/%y %H:%M')) +
+                    'Release end : {}\n'.format(rel_end.strftime(format = '%d/%m/%y %H:%M')) +
+                    'Particles released : {:.2E}\n'.format(rel_part))
+        bbox={'facecolor':'lightpink', 'alpha':0.5, 'pad':10}
+        anc_text = AnchoredText(info_str, loc=info_loc ,bbox_transform=ax.transAxes,prop=dict(size=8))
+
         return fig, ax
+
+
+@xr.register_dataset_accessor('dust')
+class FLEXDUST:
+    def __init__(self, xarray_dset):
+        self._obj = xarray_dset
+    
+    def plot_emission_field(self):
+        pass
         
+
 
 if __name__ == "__main__":
     dset = xr.open_dataset('/opt/uio/flexpart/Compleated_runs/20190306_15/output/grid_time_20190306150000.nc')
-    dset.dust.plot_emission_sensitivity(1, height=100)
+    dset.fp.plot_emission_sensitivity(1, height=100)
