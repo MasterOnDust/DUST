@@ -1,4 +1,39 @@
 import numpy as np
+import xarray as xr
+
+"""
+DESCRIPTION:
+===========
+    Returns lon / lat rectangle slice of a xarray data set
+    
+USAGE:
+=====
+    sliced_dataset = region(dset, x0, x1, y0, y1)
+
+    dset: xarray dataset
+    x0: longitude of bottom corner, (default min longitude)
+    x1: longitude of top corner, (default max longtitude)
+    y0: latitude of bottom corner, (default min latitude)
+    y1: latitude of top corner, (default max latitude)
+
+    returns : xarray.dataset
+
+"""
+def region_slice(dset, x0=None, x1=None
+                        , y0=None, y1=None):
+    if x0 == None: 
+        x0 = dset.lon.min()
+    if x1 == None:
+        x1 = dset.lon.max()
+    if y0 == None:
+        y0 = dset.lat.min()
+    if y1 == None:
+        y1 = dset.lat.max()
+    return dset.where((((dset.lon >= x0) & (dset.lon <= x1)) & 
+                        ((dset.lat >= y0) & (dset.lat <= y1))), drop=True)
+
+
+
 
 
 def _gen_log_clevs(dat_min, dat_max):
