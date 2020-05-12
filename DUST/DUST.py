@@ -1,20 +1,28 @@
-import os
+
 
 import pandas as pd
-import xarray as xr
-from xarray import Dataset
+
 import cartopy as cr
 import cartopy.crs as ccrs
+
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
-from utils.read_output import *
+import matplotlib.dates as mdates
 import matplotlib as mpl
+
 import numpy as np
 import sys
-from IPython import embed
+import os
+
+from utils.read_output import *
 from utils.maps import base_map_func
 from utils.utils import _gen_log_clevs, _gen_flexpart_colormap
-import matplotlib as mpl
+
+import xarray as xr
+from xarray import Dataset
+
+from IPython import embed
+
 
 mpl.rcParams['axes.titlesize'] = 'xx-large'
 mpl.rcParams['axes.labelsize'] = 'x-large'
@@ -23,7 +31,7 @@ mpl.rcParams['ytick.labelsize'] = 'large'
 #Note Does not work with nested output yet!
 
 
-def read_out_directory(output_dir, nclusters=5):
+def read_flexpart_output(output_dir, nclusters=5):
     traj_df = None
     outs = {}
     for file in os.listdir(output_dir):
@@ -45,6 +53,32 @@ def read_out_directory(output_dir, nclusters=5):
             continue
     
     return outs
+
+
+def read_flexdust_output(path_output_folder):
+    outdir = {}
+    for output_file in os.listdir(path_output_folder):
+        if output_file.endswith('.nc'):
+            ncfile = path_output_folder + output_file
+            dset = xr.open_dataset(ncfile, decode_times=False)
+            s_date = dset.startdate.values 
+            s_hour = dset.starthour.values
+            s_dT =  pd.to_timedelta(s_hour,unit='h') 
+            sTime = pd.to_datetime(s_date, format='%Y%m%d') + s_dT 
+            time_index = np.unique(np.reshape(dset.Date.values,dset.Date.shape[0]*2))
+            time_freq = int((time_index[1]- time_index[0])/60/60)
+            nTimeSteps = len(time_index)-1
+            time_index = pd.date_range(start='{}'.format(sTime.strftime('%Y%m%d %H:%M:%S').values[
+                    0]), periods=nTimeSteps, freq='{}h'.format(time_freq))
+            dset['time'] = time_index
+            outdir['dset'] =dset
+        elif output_file =='Summary.txt':
+            summary_dir = read_flex_dust_summary(path_output_folder + 'Summary.txt')
+            outdir['Summary'] = summary_dir
+        else:
+            continue
+
+    return outdir
 
 @xr.register_dataset_accessor('fp')
 class FLEXPART:
@@ -184,14 +218,117 @@ class FLEXPART:
         return fig, ax
 
 
+
 @xr.register_dataset_accessor('dust')
 class FLEXDUST:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
-    
-    def plot_emission_field(self):
-        pass
+
+
+    def plot_emission_time_seires(self, start_date=None, 
+                                        end_date=None,
+                                        x_date_format = None,
+                                        figsize=(10,6)
+                                            , **kwargs):
+        time = self._obj['time']
+        emssions = self._obj['Emission'].sum(dim=('lon','lat'))
+        fig = plt.figure(figsize=figsize)
+        ax = plt.axes()
+        ax.plot(time,emssions, **kwargs)
+        date0 = np.datetime_as_string(time[0].values, unit='D')
+        date_end = np.datetime_as_string(time[-1].values, unit='D')
+        lon0 = self._obj.lon.min().values; lon1 = self._obj.lon.max().values
+        lat0 = self._obj.lat.min().values; lat1 = self._obj.lat.max().values
+        plt.suptitle('Total dust emmissions {} - {}'.format(date0,date_end), fontsize = 18)
+        plt.title('lon0 = {:.2f} , lat0 = {:.2f}, lon1 = {:.2f}, lat1 = {:.2f}'.format(lon0,lat0,lon1,lat1),fontsize = 12)
+        if self._obj.Emission.units == 'kg/m2':
+            ax.set_ylabel('$\mathrm{kg}\; \mathrm{m}^{-2}$')
+        else:
+            ax.set_ylabel(self._obj.Emission.units)
+        fig.autofmt_xdate()
+        ax.fmt_data = mdates.DateFormatter(x_date_format)
+        ax.grid(linestyle='-')  
+        fig.add_subplot(ax)
+
+    def plot_emission_map(self, ax=None, 
+                            plotting_method='pcolormesh',
+                            fig=None,
+                            cmap =None,
+                            vmin=None,
+                            vmax=None,
+                            log=False):
+        if fig == None:
+            fig = plt.figure(figsize=(10,8))
+        else:
+            fig = fig
+
+
+        if ax == None:
+            ax = base_map_func()
+        else:
+            ax = ax
+        lons = self._obj.lon.values
+        lats = self._obj.lat.values
+        data = self._obj.Emission.sum(dim='time')
+
         
+        if cmap == None:
+            cmap = _gen_flexpart_colormap()
+        else:
+            cmap = cmap
+
+        if vmin  ==None and vmax == None:
+            dat_min = data.min()
+            dat_max = data.max()
+        elif vmin != None and vmax == None:
+            dat_min = vmin
+            dat_max = data.max()
+        elif vmin == None and vmax != None:
+            dat_min = data.min()
+            dat_max = vmax
+        else:
+            dat_max = vmax
+            dat_min = vmin
+
+        if log:
+            levels = _gen_log_clevs(dat_min, dat_max)
+            norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
+        else:
+            levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
+            norm = None
+
+        if plotting_method == 'pcolormesh':
+            im = ax.pcolormesh(lons, lats, data, transform  = ccrs.PlateCarree(),
+                    norm=norm, 
+                    cmap = cmap)
+        elif plotting_method =='contourf':
+            im = ax.contourf(lons,lats, data, transform  = ccrs.PlateCarree(),
+                    norm=norm, 
+                    cmap = cmap, levels=levels)
+        else:
+            raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
+
+        if self._obj.Emission.units == 'kg/m2':
+            units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+
+        else:
+            units = self._obj.Emission.units
+
+        im.cmap.set_over(color='k', alpha=0.8)
+
+        cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+        clabels = list(levels[::10])  # #clevs, by 10 steps
+        clabels.append(levels[-1])  # add the last label
+
+        cb = plt.colorbar(im,cax=cax,label = units, extend = 'max')
+        cb.set_ticks(clabels)
+
+        cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
+        cb.ax.minorticks_on()
+
+        plt.axes(ax)
+
+
 
 
 if __name__ == "__main__":
