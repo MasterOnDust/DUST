@@ -160,5 +160,29 @@ def read_trajectories(output_dir, nclusters=5):
     return df
 
 
+def read_flex_dust_summary(path_to_textfile):
+    text_file = open(path_to_textfile, 'r')
+    out_dict = {}
+    for line in text_file.readlines():
+        if len(line.split(':')) ==1:
+            continue
+        else:
+            text_in_line = line.split(':')
+            concat_str= ''
+            for chunk in text_in_line[1].split(' '):
+                
+                if chunk != '':
+                    chunk = chunk.strip()
+                    concat_str += ' ' + chunk   
+    #                 chunks.append(chunk.strip()) 
+            concat_str = concat_str.strip().split(' ')
+            if len(concat_str) > 1:
+                out_dict[text_in_line[0].strip()] = concat_str
+            else: 
+                out_dict[text_in_line[0].strip()] = concat_str[0]
+    return out_dict
+
+
+
 if __name__ == "__main__":
     df = read_trajectories('/opt/uio/flexpart/Compleated_runs/20190306_15/output/')
