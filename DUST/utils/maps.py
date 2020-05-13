@@ -78,7 +78,7 @@ def tracing_the_winds_map(figsize = (12,10)):
             y = feature.geometry.centroid.y
             ax.text(x, y, feature.attributes['name_en'], color='sienna', size=12, 
                     ha='center', va='center', transform=ccrs.PlateCarree())
-            
+        
     for prov in prov_feature:
         if prov.attributes['admin'] == 'China' and prov.attributes['type_en'] == 'Province':
             
@@ -98,6 +98,41 @@ def tracing_the_winds_map(figsize = (12,10)):
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
     return fig, ax
+
+def map_china(figsize =(10,8),extent=None):
+    fig = plt.figure(figsize=figsize)
+    ax = plt.axes(projection = ccrs.PlateCarree())
+    if extent != None:
+        ax.set_extent(extent)
+
+    boundary_10m = cfeature.NaturalEarthFeature('cultural', 
+                                            name ='admin_0_boundary_lines_land', 
+                                            scale ='10m',
+                                            facecolor='none')
+    prov_10 = shpreader.natural_earth(category = 'cultural', 
+                                            name ='admin_1_states_provinces', 
+                                            resolution= '10m')
+
+    read_prov = shpreader.Reader(prov_10)
+
+    prov_feature = read_prov.records()
+
+    for prov in prov_feature:
+        if prov.attributes['admin'] == 'China' and prov.attributes['type_en'] == 'Province':
+            ax.add_geometries(prov.geometry,crs =ccrs.PlateCarree(), facecolor='none', edgecolor='gray', 
+                            alpha=.8, linestyle=':')
+
+    ax.add_feature(boundary_10m, edgecolor='gray')
+    ax.coastlines('10m', color='gray', alpha=0.8)
+
+    gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
+    gl.xlabels_top = False
+    gl.ylabels_right = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    return fig, ax
+
+
 
 def base_map_func():
     ax = plt.axes(projection=ccrs.PlateCarree())

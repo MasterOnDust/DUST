@@ -228,10 +228,20 @@ class FLEXDUST:
     def plot_emission_time_seires(self, start_date=None, 
                                         end_date=None,
                                         x_date_format = None,
-                                        figsize=(10,6)
-                                            , **kwargs):
+                                        figsize=(10,6),
+                                        title=None,
+                                        unit='kg',
+                                             **kwargs):
         time = self._obj['time']
-        emssions = self._obj['Emission'].sum(dim=('lon','lat'))
+        if unit =='kg':
+            emssions = (self._obj['Emission']*self._obj.area.values).sum(dim=('lon','lat'))
+            units = 'kg'
+        elif unit =='kg/m2':
+            emssions = self._obj['Emission'].sum(dim=('lon','lat'))
+            units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+
+        else:
+            raise(ValueError("method` param {} is not a valid one. Try 'kg' or kg/m2".format(unit)))
         fig = plt.figure(figsize=figsize)
         ax = plt.axes()
         ax.plot(time,emssions, **kwargs)
@@ -239,12 +249,15 @@ class FLEXDUST:
         date_end = np.datetime_as_string(time[-1].values, unit='D')
         lon0 = self._obj.lon.min().values; lon1 = self._obj.lon.max().values
         lat0 = self._obj.lat.min().values; lat1 = self._obj.lat.max().values
-        plt.suptitle('Total dust emmissions {} - {}'.format(date0,date_end), fontsize = 18)
-        plt.title('lon0 = {:.2f} , lat0 = {:.2f}, lon1 = {:.2f}, lat1 = {:.2f}'.format(lon0,lat0,lon1,lat1),fontsize = 12)
-        if self._obj.Emission.units == 'kg/m2':
-            ax.set_ylabel('$\mathrm{kg}\; \mathrm{m}^{-2}$')
+        if title == None:
+            plt.suptitle('Total dust emissions {} - {}'.format(date0,date_end), fontsize = 18)
         else:
-            ax.set_ylabel(self._obj.Emission.units)
+            plt.suptitle(title + ' {} - {}'.format(date0,date_end), fontsize = 18)
+        plt.title('lon0 = {:.2f} , lat0 = {:.2f}, lon1 = {:.2f}, lat1 = {:.2f}'.format(lon0,lat0,lon1,lat1),fontsize = 12)
+        
+        ax.set_ylabel(units)
+        
+        
         fig.autofmt_xdate()
         ax.fmt_data = mdates.DateFormatter(x_date_format)
         ax.grid(linestyle='-')  
@@ -256,12 +269,23 @@ class FLEXDUST:
                             cmap =None,
                             vmin=None,
                             vmax=None,
+                            title=None,
                             log=False):
+
+        
         if fig == None:
             fig = plt.figure(figsize=(10,8))
         else:
             fig = fig
+        if title == None:
+            plt.suptitle('FLEXDUST estimated accumulated emissions', fontsize=18,y=0.8)
+        else:
+            plt.suptitle(title)
 
+        date0 = np.datetime_as_string(self._obj.time[0].values, unit='D')
+        date_end = np.datetime_as_string(self._obj.time[-1].values, unit='D')
+        
+        plt.title('start date: {} - end date {}'.format(date0, date_end), fontsize=12)
 
         if ax == None:
             ax = base_map_func()
@@ -307,12 +331,15 @@ class FLEXDUST:
                     cmap = cmap, levels=levels)
         else:
             raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
+        
+        try:
+            if self._obj.Emission.units == 'kg/m2':
+                units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
 
-        if self._obj.Emission.units == 'kg/m2':
+            else:
+                units = self._obj.Emission.units
+        except AttributeError:
             units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
-
-        else:
-            units = self._obj.Emission.units
 
         im.cmap.set_over(color='k', alpha=0.8)
 
@@ -325,6 +352,9 @@ class FLEXDUST:
 
         cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
         cb.ax.minorticks_on()
+
+
+
 
         plt.axes(ax)
 
