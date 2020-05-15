@@ -14,9 +14,9 @@ import numpy as np
 import sys
 import os
 
-from utils.read_output import *
-from utils.maps import base_map_func
-from utils.utils import _gen_log_clevs, _gen_flexpart_colormap
+from DUST.utils.read_output import *
+from DUST.utils.maps import base_map_func
+from DUST.utils.utils import _gen_log_clevs, _gen_flexpart_colormap
 
 import xarray as xr
 from xarray import Dataset
@@ -225,12 +225,15 @@ class FLEXDUST:
         self._obj = xarray_dset
 
 
-    def plot_emission_time_seires(self, start_date=None, 
+    def plot_emission_time_series(self, start_date=None, 
                                         end_date=None,
                                         x_date_format = None,
-                                        figsize=(10,6),
                                         title=None,
                                         unit='kg',
+                                        subtitle = None,
+                                        ax = None,
+                                        mark_days = None,
+
                                              **kwargs):
         time = self._obj['time']
         if unit =='kg':
@@ -242,26 +245,51 @@ class FLEXDUST:
 
         else:
             raise(ValueError("method` param {} is not a valid one. Try 'kg' or kg/m2".format(unit)))
-        fig = plt.figure(figsize=figsize)
-        ax = plt.axes()
+        if ax == None:
+            ax = plt.axes()
+        else:
+            ax = ax
         ax.plot(time,emssions, **kwargs)
         date0 = np.datetime_as_string(time[0].values, unit='D')
         date_end = np.datetime_as_string(time[-1].values, unit='D')
-        lon0 = self._obj.lon.min().values; lon1 = self._obj.lon.max().values
-        lat0 = self._obj.lat.min().values; lat1 = self._obj.lat.max().values
+
         if title == None:
+            pass
+        elif title =='default':
             plt.suptitle('Total dust emissions {} - {}'.format(date0,date_end), fontsize = 18)
         else:
             plt.suptitle(title + ' {} - {}'.format(date0,date_end), fontsize = 18)
-        plt.title('lon0 = {:.2f} , lat0 = {:.2f}, lon1 = {:.2f}, lat1 = {:.2f}'.format(lon0,lat0,lon1,lat1),fontsize = 12)
         
+        if subtitle == 'default':
+            lon0 = self._obj.lon.min().values; lon1 = self._obj.lon.max().values
+            lat0 = self._obj.lat.min().values; lat1 = self._obj.lat.max().values
+            plt.title('lon0 = {:.2f} , lat0 = {:.2f}, lon1 = {:.2f}, lat1 = {:.2f}'.format(lon0,lat0,lon1,lat1),fontsize = 12)
+        elif subtitle == None:
+            pass
+        else:
+            plt.title(subtitle, fontsize = 12)
         ax.set_ylabel(units)
-        
-        
-        fig.autofmt_xdate()
-        ax.fmt_data = mdates.DateFormatter(x_date_format)
+
+        if mark_days:
+            marks = ['s', 'x']
+            for location, m in  zip(mark_days,marks):
+                dust_emssion_on_date = emssions.loc[{'time':mark_days[location]}]
+                if m == 'x':
+                    ax.scatter(dust_emssion_on_date.time, dust_emssion_on_date, marker = m, label = location, s=50, 
+                                    zorder=1000, color = 'cyan')
+                else: 
+                    ax.scatter(dust_emssion_on_date.time, dust_emssion_on_date, marker = m, label = location, 
+                                    s=36, zorder=900, color='darkred')
+
+            ax.legend(loc=1)
+        locator = mdates.AutoDateLocator(minticks=5, maxticks=12)
+
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
         ax.grid(linestyle='-')  
-        fig.add_subplot(ax)
+
 
     def plot_emission_map(self, ax=None, 
                             plotting_method='pcolormesh',

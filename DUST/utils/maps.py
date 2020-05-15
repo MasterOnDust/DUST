@@ -28,10 +28,11 @@ USAGE:
 
 """
 
-def tracing_the_winds_map(figsize = (12,10)):
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(projection=ccrs.PlateCarree())
-
+def tracing_the_winds_map(ax  = None):
+    if ax ==None:
+        ax = plt.axes(projection=ccrs.PlateCarree())
+    else:
+        ax = ax
     shpfilename = shpreader.natural_earth(resolution='10m',
                                         category='physical',
                                         name='geography_regions_polys')
@@ -97,7 +98,7 @@ def tracing_the_winds_map(figsize = (12,10)):
     gl.ylabels_right = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    return fig, ax
+
 
 def map_china(figsize =(10,8),extent=None):
     fig = plt.figure(figsize=figsize)
