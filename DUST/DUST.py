@@ -224,6 +224,36 @@ class FLEXDUST:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
 
+    def _integrate_area(self, unit):
+        if unit == 'kg':
+            emission_series = (self._obj['Emission']*self._obj.area.values).sum(dim=('lon','lat'))
+        elif unit =='kg/m2':
+            emission_series = self._obj['Emission'].sum(dim=('lon','lat'))
+            units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+
+        else:
+            raise(ValueError("method` param {} is not a valid one. Try 'kg' or kg/m2".format(unit)))
+        return emission_series
+
+
+    def emission_time_series_to_df(self):
+        emissions_kg = self._integrate_area('kg')
+        emissions_kg_m2 = self._integrate_area('kg/m2')
+        df = pd.DataFrame(columns=['emissions(kg)','emissions(kg/m2)'], index=emissions_kg.time.values)
+        date0 = np.datetime_as_string(self._obj.time[0].values, unit='D')
+        date_end = np.datetime_as_string(self._obj.time[-1].values, unit='D')
+        df['emissions(kg)'] = emissions_kg.to_dataframe()
+        df['emissions(kg/m2)'] = emissions_kg_m2.to_dataframe()
+        return df
+
+    def emission_time_series_to_csv(self, filename=None):
+        df = self.emission_time_series_to_df()
+
+        if filename == None:
+            filename = 'Emissions' + df.index[0].strftime(format='%b_%d_%Y') + df.index[-1].strftime(format='%b_%d_%Y') + '.csv' 
+        else:
+            filename =filename
+        df.to_csv(filename)
 
     def plot_emission_time_series(self, start_date=None, 
                                         end_date=None,
@@ -237,10 +267,10 @@ class FLEXDUST:
                                              **kwargs):
         time = self._obj['time']
         if unit =='kg':
-            emssions = (self._obj['Emission']*self._obj.area.values).sum(dim=('lon','lat'))
+            emissions = self._integrate_area(unit)
             units = 'kg'
         elif unit =='kg/m2':
-            emssions = self._obj['Emission'].sum(dim=('lon','lat'))
+            emissions = self._integrate_area(unit)
             units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
 
         else:
@@ -249,7 +279,7 @@ class FLEXDUST:
             ax = plt.axes()
         else:
             ax = ax
-        ax.plot(time,emssions, **kwargs)
+        ax.plot(time,emissions, **kwargs)
         date0 = np.datetime_as_string(time[0].values, unit='D')
         date_end = np.datetime_as_string(time[-1].values, unit='D')
 
@@ -270,18 +300,6 @@ class FLEXDUST:
             plt.title(subtitle, fontsize = 12)
         ax.set_ylabel(units)
 
-        if mark_days:
-            marks = ['s', 'x']
-            for location, m in  zip(mark_days,marks):
-                dust_emssion_on_date = emssions.loc[{'time':mark_days[location]}]
-                if m == 'x':
-                    ax.scatter(dust_emssion_on_date.time, dust_emssion_on_date, marker = m, label = location, s=50, 
-                                    zorder=1000, color = 'cyan')
-                else: 
-                    ax.scatter(dust_emssion_on_date.time, dust_emssion_on_date, marker = m, label = location, 
-                                    s=36, zorder=900, color='darkred')
-
-            ax.legend(loc=1)
         locator = mdates.AutoDateLocator(minticks=5, maxticks=12)
 
         formatter = mdates.ConciseDateFormatter(locator)
