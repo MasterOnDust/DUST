@@ -1,26 +1,28 @@
 import numpy as np
 import xarray as xr
 
-"""
-DESCRIPTION:
-===========
-    Returns lon / lat rectangle slice of a xarray data set
-    
-USAGE:
-=====
-    sliced_dataset = region(dset, x0, x1, y0, y1)
-
-    dset: xarray dataset
-    x0: longitude of bottom corner, (default min longitude)
-    x1: longitude of top corner, (default max longtitude)
-    y0: latitude of bottom corner, (default min latitude)
-    y1: latitude of top corner, (default max latitude)
-
-    returns : xarray.dataset
-
-"""
 def region_slice(dset, x0=None, x1=None
                         , y0=None, y1=None):
+
+    """
+    DESCRIPTION:
+    ===========
+        Returns lon / lat rectangle slice of a xarray data set
+        
+    USAGE:
+    =====
+        sliced_dataset = region(dset, x0, x1, y0, y1)
+
+        dset: xarray dataset
+        x0: longitude of bottom corner, (default min longitude)
+        x1: longitude of top corner, (default max longtitude)
+        y0: latitude of bottom corner, (default min latitude)
+        y1: latitude of top corner, (default max latitude)
+
+        returns : xarray.dataset
+
+    """
+    
     if x0 == None: 
         x0 = dset.lon.min()
     if x1 == None:
@@ -33,6 +35,45 @@ def region_slice(dset, x0=None, x1=None
                         ((dset.lat >= y0) & (dset.lat <= y1))), drop=True)
 
 
+def merge_flexpart_flexdust(dset,ems, units='kg/m^3'):
+
+    """
+    DESCRIPTION:
+    ===========
+        
+        Calculates surface concentrations / dry deposition / wet deposition 
+        depending on the kind of FLEXPART dataset
+
+        The FLEXDUST emissions has unit of kg/m^2 which is devided by the height of the lowest layer in the 
+        FLEXPART output
+
+        The FLEXPART emission sensitivity has unit of either 's', 'm' depending on where concentration or wet dep /
+        dry dep is specified. 
+
+    USAGE:
+    =====
+        
+        da = marge_flexpart_flexdust(dset,ems,units)
+        dset: flexpart DataArray containing the emission sensitivity (xarray DataArray)
+        ems:  flexdust DataArray containing the emission flux output (xarray dataset)
+        units: the final units of the merged product
+
+
+        returns xarray.DataArray
+    """
+
+
+    da = xr.DataArray(coords=[dset.pointspec, dset.time, dset.latitude, dset.longitude],
+                      dims=['pointspec','time', 'latitude', 'longitude'], name='surf_combined')
+
+    for pointspec in range(len(dset.pointspec)):
+        for time in range(len(dset.time)):
+
+            da[pointspec,time,:,:] = (dset[0,pointspec,time,0,:,:]*(ems[time,:,:]/dset.height[0]).values)
+                
+    
+
+    return da
 
 
 

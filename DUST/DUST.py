@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 import matplotlib.dates as mdates
 import matplotlib as mpl
+from matplotlib.ticker import LogFormatter , LogFormatterMathtext, LogFormatterSciNotation
 
 import numpy as np
 import sys
@@ -29,6 +30,26 @@ mpl.rcParams['axes.labelsize'] = 'x-large'
 mpl.rcParams['xtick.labelsize'] = 'large'
 mpl.rcParams['ytick.labelsize'] = 'large'
 #Note Does not work with nested output yet!
+
+def read_multiple_flexpart_output(path):
+    """
+    DESCRIPTION
+    ===========
+        Reads in FLEXPART output files in a parent directory
+        assume the following folder structure '/partentdir/XXXXXX_simulation/output/'  
+
+    USAGE
+    =====
+        dsets = read_multiple_flexpart_output(path)
+
+        return : python dictionary containing xarray datasets
+    """
+
+    dsets = {}
+    for paths in os.listdir(path):
+    
+        dsets[paths] = read_flexpart_output(path + paths + '/output/')['ems_sens']
+    return dsets
 
 
 def read_flexpart_output(output_dir, nclusters=5):
@@ -72,13 +93,16 @@ def read_flexdust_output(path_output_folder):
                     0]), periods=nTimeSteps, freq='{}h'.format(time_freq))
             dset['time'] = time_index
             outdir['dset'] =dset
-        elif output_file =='Summary.txt':
-            summary_dir = read_flex_dust_summary(path_output_folder + 'Summary.txt')
+        elif output_file.endswith('.txt'):
+            summary_dir = read_flex_dust_summary(path_output_folder + output_file)
             outdir['Summary'] = summary_dir
         else:
             continue
 
     return outdir
+
+
+
 
 @xr.register_dataset_accessor('fp')
 class FLEXPART:
@@ -235,6 +259,10 @@ class FLEXDUST:
             raise(ValueError("method` param {} is not a valid one. Try 'kg' or kg/m2".format(unit)))
         return emission_series
 
+    def get_total_emission(self, unit='kg'):
+        area_integrated = self._integrate_area(unit=unit)
+        tot_emissions = area_integrated.sum(dim='time')
+        return tot_emissions
 
     def emission_time_series_to_df(self):
         emissions_kg = self._integrate_area('kg')
@@ -311,22 +339,18 @@ class FLEXDUST:
 
     def plot_emission_map(self, ax=None, 
                             plotting_method='pcolormesh',
+                            reduce='sum',
+                            freq=None,
                             fig=None,
                             cmap =None,
                             vmin=None,
                             vmax=None,
                             title=None,
-                            log=False):
+                            log=False,
+                            unit='kg'):
 
         
-        if fig == None:
-            fig = plt.figure(figsize=(10,8))
-        else:
-            fig = fig
-        if title == None:
-            plt.suptitle('FLEXDUST estimated accumulated emissions', fontsize=18,y=0.8)
-        else:
-            plt.suptitle(title)
+
 
         date0 = np.datetime_as_string(self._obj.time[0].values, unit='D')
         date_end = np.datetime_as_string(self._obj.time[-1].values, unit='D')
@@ -339,9 +363,38 @@ class FLEXDUST:
             ax = ax
         lons = self._obj.lon.values
         lats = self._obj.lat.values
-        data = self._obj.Emission.sum(dim='time')
 
-        
+        if freq == None:
+            pass
+        else:
+            self._obj = self.resample_data(freq=freq, method='sum')
+
+        if reduce == 'mean':
+            data = self._obj.Emission.mean(dim='time')
+        elif reduce == 'sum': 
+            data = self._obj.Emission.sum(dim='time')
+        else:
+            raise ValueError("`reduce` param '%s' is not a valid one." % unit)
+
+        if unit == 'kg':
+            data = data*self._obj.area.values[0]
+            units = '$\mathrm{kg}$'
+        elif unit== 'kg/m2':
+            data = data
+            units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+        else:
+            raise ValueError("`unit` param '%s' is not a valid one." % unit)
+
+        if fig == None:
+            fig = plt.figure(figsize=(10,8))
+        else:
+            fig = fig
+        if title == None:
+            plt.suptitle('FLEXDUST estimated accumulated emissions', fontsize=18,y=0.8)
+        else:
+            plt.suptitle(title, fontsize=18,y=0.8)
+
+
         if cmap == None:
             cmap = _gen_flexpart_colormap()
         else:
@@ -363,9 +416,11 @@ class FLEXDUST:
         if log:
             levels = _gen_log_clevs(dat_min, dat_max)
             norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
+            formater = LogFormatterSciNotation()
         else:
             levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
             norm = None
+            formater = None
 
         if plotting_method == 'pcolormesh':
             im = ax.pcolormesh(lons, lats, data, transform  = ccrs.PlateCarree(),
@@ -378,25 +433,19 @@ class FLEXDUST:
         else:
             raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
         
-        try:
-            if self._obj.Emission.units == 'kg/m2':
-                units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
-
-            else:
-                units = self._obj.Emission.units
-        except AttributeError:
-            units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
 
         im.cmap.set_over(color='k', alpha=0.8)
 
         cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
         clabels = list(levels[::10])  # #clevs, by 10 steps
         clabels.append(levels[-1])  # add the last label
-
-        cb = plt.colorbar(im,cax=cax,label = units, extend = 'max')
-        cb.set_ticks(clabels)
-
-        cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
+        # formater = LogFormatter(10, labelOnlyBase=False) 
+        cb = plt.colorbar(im,cax=cax,label = units, extend = 'max', format = formater,)
+        # cb.set_ticks(clabels)
+        
+        # cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
+        # cb.ax.ticklabel_format(axis = 'y', style = 'sci',useMathText=True, scilimits = (0,0))
+        # cb.ax.axis([1, 10000, 1, 1000000])
         cb.ax.minorticks_on()
 
 
@@ -404,6 +453,14 @@ class FLEXDUST:
 
         plt.axes(ax)
 
+
+    def resample_data(self, freq, method='mean'):
+        if method == 'mean':
+            return self._obj.resample(time=freq).mean()
+        elif method =='sum':
+            return self._obj.resample(time=freq).sum()
+        else:
+            raise ValueError("`method` param '%s' is not a valid one." % method)
 
 
 

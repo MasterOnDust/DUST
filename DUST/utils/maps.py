@@ -27,7 +27,6 @@ USAGE:
         
 
 """
-
 def tracing_the_winds_map(ax  = None):
     if ax ==None:
         ax = plt.axes(projection=ccrs.PlateCarree())
@@ -125,7 +124,7 @@ def map_china(figsize =(10,8),extent=None):
 
     ax.add_feature(boundary_10m, edgecolor='gray')
     ax.coastlines('10m', color='gray', alpha=0.8)
-
+    # ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
     gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
     gl.xlabels_top = False
     gl.ylabels_right = False
