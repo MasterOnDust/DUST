@@ -14,6 +14,7 @@ from matplotlib.ticker import LogFormatter , LogFormatterMathtext, LogFormatterS
 import numpy as np
 import sys
 import os
+import glob
 
 from DUST.utils.read_output import *
 from DUST.utils.maps import base_map_func
@@ -45,10 +46,8 @@ def read_multiple_flexpart_output(path):
         return : python dictionary containing xarray datasets
     """
 
-    dsets = {}
-    for paths in os.listdir(path):
-    
-        dsets[paths] = read_flexpart_output(path + paths + '/output/')['ems_sens']
+    nc_files = glob.glob(path + "/**/*.nc", recursive=True)
+    dsets = xr.open_mfdataset(ncfiles)
     return dsets
 
 

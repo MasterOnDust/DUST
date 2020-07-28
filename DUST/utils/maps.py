@@ -116,10 +116,10 @@ def map_china(figsize =(10,8),extent=None):
     read_prov = shpreader.Reader(prov_10)
 
     prov_feature = read_prov.records()
-
+    print(prov_feature)
     for prov in prov_feature:
         if prov.attributes['admin'] == 'China' and prov.attributes['type_en'] == 'Province':
-            ax.add_geometries(prov.geometry,crs =ccrs.PlateCarree(), facecolor='none', edgecolor='gray', 
+            ax.add_geometries([prov.geometry],crs =ccrs.PlateCarree(), facecolor='none', edgecolor='gray', 
                             alpha=.8, linestyle=':')
 
     ax.add_feature(boundary_10m, edgecolor='gray')
