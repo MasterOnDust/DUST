@@ -1,6 +1,20 @@
 import numpy as np
 import xarray as xr
 
+# def select_data(ds):
+#     """
+#     DESCRIPTION
+#     ===========
+
+    
+#     USAGE:
+#     ======
+
+
+
+#     """
+
+
 def region_slice(dset, x0=None, x1=None
                         , y0=None, y1=None):
 
@@ -75,7 +89,20 @@ def merge_flexpart_flexdust(dset,ems, units='kg/m^3'):
 
     return da
 
-
+def _fix_time_flexdust(ncfile):
+    """Fixes the time in FLEXDUST"""
+    dset = xr.open_dataset(ncfile, decode_times=False)
+    s_date = dset.startdate.values 
+    s_hour = dset.starthour.values
+    s_dT =  pd.to_timedelta(s_hour,unit='h') 
+    sTime = pd.to_datetime(s_date, format='%Y%m%d') + s_dT 
+    time_index = np.unique(np.reshape(dset.Date.values,dset.Date.shape[0]*2))
+    time_freq = int((time_index[1]- time_index[0])/60/60)
+    nTimeSteps = len(time_index)-1
+    time_index = pd.date_range(start='{}'.format(sTime.strftime('%Y%m%d %H:%M:%S').values[
+            0]), periods=nTimeSteps, freq='{}h'.format(time_freq))
+    dset['time'] = time_index
+    return dset
 
 def _gen_log_clevs(dat_min, dat_max):
     """Creates a logarithmic color scale."""

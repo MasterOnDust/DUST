@@ -12,37 +12,44 @@ import time
 from IPython import embed
 from numba import njit, prange
 
+
+
+def multi_flexpart_flexdust(path, nc_files, flexdust_path, point_spec):
+    """
+    Description:
+    ===========
+        
+        Multiply flexpart emissions sensitivities with modelled dust emissions from FLEXDUST, 
+        and save the output to a new netcdf file.
+
+    USAGE:
+    =====
+        
+        path : path to where the netcdf file should be created
+        nc_files : list containing the path to the FLEXPART netcdf files 
+        flexdust_path : path to the directory containing the flexdust netcdf output
+        point_spec : integer --> corrensponding to the release point in the flexpart netcdf file
+
+        multi_flexpart_flexdust(path, nc_files, flexdust, point_spec)
+
+    AUTHOR:
+    =======
+        Ove Haugvaldstad
+        ovehaugv@outlook.com
+
 """
-Description:
-===========
-    Create empty netcdf file for storing the merged flexpart/flexdust output.
 
-USAGE:
-=====
-    path : path to where the netcdf file should be created
-    locations: name of the locations contained in pointpsec (python list)
-    d0 : xarray dataset necessary for setting up dimmensions and metadata
-
-    _setup_netdcf4(path, locations, d0)
-
-
-AUTHOR:
-=======
-    Ove Haugvaldstad
-    ovehaugv@outlook.com
-
-"""
-
-def _setup_netcdf4(path,
-                  nc_files, flexdust_path, point_spec):
+    # Read in the first flexpart netcdf file as reference for setting up the output file
     d0 = xr.open_dataset(ncfiles[0], decode_times=False)
     d0 = sel_location(d0,point_spec)
        
     try:
         ncfile = Dataset(path, 'w', format="NETCDF4")
     except PermissionError:
+        # If netcdf file exist delete old one
         os.remove(path)
         ncfile = Dataset(path, 'w', format='NETCDF4') 
+    
     #Setup attributes
     ncfile.title = 'Flexpart - Flexdust SSR'
     ncfile.history = "Created " + time.ctime(time.time())
@@ -50,8 +57,7 @@ def _setup_netcdf4(path,
     ncfile.receptor_name = str(d0.RELCOM.values)[2:].strip()
     ncfile.reference = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482'
 
-    
-    
+    #Copy variables 
     lats = d0.latitude.values
     lons = d0.longitude.values
     ts = d0.time.values
@@ -80,6 +86,7 @@ def _setup_netcdf4(path,
     lon.units = 'degrees_east'
     lon.long_name = 'longitude'
     
+    #Set receptor location
     rellat = ncfile.createVariable('RELLAT', 'f4', ('npoint',))
     rellat.units = 'degrees_north'
     rellat.long_name = 'latitude_receptor'
@@ -106,7 +113,7 @@ def _setup_netcdf4(path,
     time_var.units = "hours since 1980-01-01"
     time_var.long_name = 'time'
     
-    
+    # Determind which kind of output should be created
     if ind_receptor == 1:
         field = ncfile.createVariable('Concentration', 'f4',('time', 'btime', 'lat', 'lon'))
         field.units = 'kg/m^3'
@@ -123,24 +130,26 @@ def _setup_netcdf4(path,
         field = ncfile.createVariable('Spec_mr', 'f4', ('time', 'btime', 'lat', 'lon'))
         field.units = 'kg/m^3'
     
-    field.height = d0.height.values
+    
+    field.height = d0.height.values     #set the height of the lowest model output layer
     td = pd.to_timedelta(d0.time.values, unit='s')
     emsField = DUST.read_flexdust_output(flexdust_path)['dset'].Emission
     time_steps = []
     for n, nc_file in enumerate(nc_files):
         temp_ds = xr.open_dataset(nc_file, decode_times=False)
-        temp_ds = sel_location(temp_ds, point_spec)
+        temp_ds = _sel_location(temp_ds, point_spec)
         s_time = pd.to_datetime(temp_ds.iedate + temp_ds.ietime)
         time_steps.append(date2num(s_time, time_var.units))
         ems_sens = temp_ds.spec001_mr
         temp_ems = emsField.sel(time=s_time + td)
-        temp_array = multiply_emissions(temp_ems.values, ems_sens.values)
+        #multiply emission and emission sensitivity
+        temp_array = _multiply_emissions(temp_ems.values, ems_sens.values)  
         field[n,:,:,:] = temp_array
-    time_var[:] = time_steps[:]
+    time_var[:] = time_steps
     ncfile.close()
 
 @njit(parallel=True)
-def multiply_emissions(ems, ems_sens):
+def _multiply_emissions(ems, ems_sens):
     temp_array = np.zeros_like(ems_sens)
     for i in prange(ems.shape[0]):
         for j in range(ems.shape[1]):
@@ -149,12 +158,12 @@ def multiply_emissions(ems, ems_sens):
     return temp_array
 
 
-def sel_location(ds,pointspec):
+def _sel_location(ds,pointspec):
     ds = ds.sel(pointspec=pointspec)
     ds = ds.sel(numpoint=pointspec)
     ds = ds.sel(numspec=pointspec)
     ds = ds.sel(nageclass=0)
-    ds = ds.sel(height=100)
+    ds = ds.isel(height=0)
     return ds
 
 
