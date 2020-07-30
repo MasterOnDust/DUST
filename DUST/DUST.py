@@ -96,9 +96,12 @@ def read_multiple_flexpart_output(path):
         return : python dictionary containing xarray datasets
 
     """
-
-    nc_files = glob.glob(path + "/**/*.nc", recursive=True)
-    dsets = xr.open_mfdataset(ncfiles)
+    def pre(ds):
+        ds = ds.assign_coords(record=pd.to_datetime(ds.iedate + ds.ietime))
+        return ds
+    nc_files = glob.glob(path + "/**/grid*.nc", recursive=True)
+    dsets = xr.open_mfdataset(nc_files, preprocess=pre, decode_times=False, 
+                            combine='nested', concat_dim='record', parallel=True)
     return dsets
 
 
@@ -418,18 +421,18 @@ class FLEXDUST:
             self._obj = self.resample_data(freq=freq, method='sum')
 
         if reduce == 'mean':
-            data = self._obj.Emission.mean(dim='time')
+            data = self._obj.Emission.mean(dim='time', keep_attrs=True)
         elif reduce == 'sum': 
-            data = self._obj.Emission.sum(dim='time')
+            data = self._obj.Emission.sum(dim='time', keep_attrs=True)
         else:
             raise ValueError("`reduce` param '%s' is not a valid one." % unit)
 
         if unit == 'kg':
             data = data*self._obj.area.values[0]
-            data['units'] = '$\mathrm{kg}$'
+            data = data.assign_attrs(units = '$\mathrm{kg}$')
         elif unit== 'kg/m2':
             data = data
-            data['units'] = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+            data = data.assign_attrs(units ='$\mathrm{kg}\; \mathrm{m}^{-2}$')
         else:
             raise ValueError("`unit` param '%s' is not a valid one." % unit)
 

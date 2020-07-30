@@ -99,11 +99,11 @@ def tracing_the_winds_map(ax  = None):
     gl.yformatter = LATITUDE_FORMATTER
 
 
-def map_china(figsize =(10,8),extent=None):
-    fig = plt.figure(figsize=figsize)
-    ax = plt.axes(projection = ccrs.PlateCarree())
+def map_china(ax=None, extent=None):
+    if ax == None:
+        ax = plt.axes(projection = ccrs.PlateCarree())
     if extent != None:
-        ax.set_extent(extent)
+        ax.set_extent(extent, crs= ccrs.PlateCarree())
 
     boundary_10m = cfeature.NaturalEarthFeature('cultural', 
                                             name ='admin_0_boundary_lines_land', 
@@ -116,7 +116,7 @@ def map_china(figsize =(10,8),extent=None):
     read_prov = shpreader.Reader(prov_10)
 
     prov_feature = read_prov.records()
-    print(prov_feature)
+
     for prov in prov_feature:
         if prov.attributes['admin'] == 'China' and prov.attributes['type_en'] == 'Province':
             ax.add_geometries([prov.geometry],crs =ccrs.PlateCarree(), facecolor='none', edgecolor='gray', 
@@ -130,12 +130,12 @@ def map_china(figsize =(10,8),extent=None):
     gl.ylabels_right = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    return fig, ax
 
 
 
-def base_map_func():
-    ax = plt.axes(projection=ccrs.PlateCarree())
+
+def base_map_func(ax):
+    
     ax.coastlines()
     # ax.add_feature(land_50m)
     ax.add_feature(cr.feature.BORDERS)
@@ -144,5 +144,3 @@ def base_map_func():
 
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-
-    return ax
