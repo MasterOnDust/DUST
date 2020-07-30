@@ -21,7 +21,7 @@ def mpl_base_map_plot(data,
     USAGE:
     ======
     """
-    default_options = {'cmap': None, 'ax': None, 'fig' : None, 'mark_recptor': False,
+    default_options = {'cmap': None, 'ax': None, 'fig' : None, 'mark_receptor': False,
                         'figsize': (10,6)}
 
     default_options.update(kwargs)
@@ -74,7 +74,7 @@ def mpl_base_map_plot(data,
         raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
     
 
-    if default_options['mark_receptor'] == True:
+    if default_options['mark_receptor']:
         ax.scatter(data.lon0, data.lat0, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
         
     im.cmap.set_over(color='k', alpha=0.8)
