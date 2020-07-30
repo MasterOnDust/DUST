@@ -1,6 +1,6 @@
 import numpy as np
 import xarray as xr
-
+import pandas as pd
 # def select_data(ds):
 #     """
 #     DESCRIPTION
@@ -49,45 +49,45 @@ def region_slice(dset, x0=None, x1=None
                         ((dset.lat >= y0) & (dset.lat <= y1))), drop=True)
 
 
-def merge_flexpart_flexdust(dset,ems, units='kg/m^3'):
+# def merge_flexpart_flexdust(dset,ems, units='kg/m^3'):
 
-    """
-    DESCRIPTION:
-    ===========
+#     """
+#     DESCRIPTION:
+#     ===========
         
-        Calculates surface concentrations / dry deposition / wet deposition 
-        depending on the kind of FLEXPART dataset
+#         Calculates surface concentrations / dry deposition / wet deposition 
+#         depending on the kind of FLEXPART dataset
 
-        The FLEXDUST emissions has unit of kg/m^2 which is devided by the height of the lowest layer in the 
-        FLEXPART output
+#         The FLEXDUST emissions has unit of kg/m^2 which is devided by the height of the lowest layer in the 
+#         FLEXPART output
 
-        The FLEXPART emission sensitivity has unit of either 's', 'm' depending on where concentration or wet dep /
-        dry dep is specified. 
+#         The FLEXPART emission sensitivity has unit of either 's', 'm' depending on where concentration or wet dep /
+#         dry dep is specified. 
 
-    USAGE:
-    =====
+#     USAGE:
+#     =====
         
-        da = marge_flexpart_flexdust(dset,ems,units)
-        dset: flexpart DataArray containing the emission sensitivity (xarray DataArray)
-        ems:  flexdust DataArray containing the emission flux output (xarray dataset)
-        units: the final units of the merged product
+#         da = marge_flexpart_flexdust(dset,ems,units)
+#         dset: flexpart DataArray containing the emission sensitivity (xarray DataArray)
+#         ems:  flexdust DataArray containing the emission flux output (xarray dataset)
+#         units: the final units of the merged product
 
 
-        returns xarray.DataArray
-    """
+#         returns xarray.DataArray
+#     """
 
 
-    da = xr.DataArray(coords=[dset.pointspec, dset.time, dset.latitude, dset.longitude],
-                      dims=['pointspec','time', 'latitude', 'longitude'], name='surf_combined')
+#     da = xr.DataArray(coords=[dset.pointspec, dset.time, dset.latitude, dset.longitude],
+#                       dims=['pointspec','time', 'latitude', 'longitude'], name='surf_combined')
 
-    for pointspec in range(len(dset.pointspec)):
-        for time in range(len(dset.time)):
+#     for pointspec in range(len(dset.pointspec)):
+#         for time in range(len(dset.time)):
 
-            da[pointspec,time,:,:] = (dset[0,pointspec,time,0,:,:]*(ems[time,:,:]/dset.height[0]).values)
+#             da[pointspec,time,:,:] = (dset[0,pointspec,time,0,:,:]*(ems[time,:,:]/dset.height[0]).values)
                 
     
 
-    return da
+#     return da
 
 def _fix_time_flexdust(ncfile):
     """Fixes the time in FLEXDUST"""
