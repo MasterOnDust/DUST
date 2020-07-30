@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='DUST',
-    version=0.01,
+    version=0.02,
     description='''Module containing tools for analysing
     FLEXPART and FLEXDUST output''',
     author='Ove Haugvaldstad',

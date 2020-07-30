@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 
 import cartopy as cr
@@ -14,13 +12,16 @@ from matplotlib.ticker import LogFormatter , LogFormatterMathtext, LogFormatterS
 import numpy as np
 import sys
 import os
+import glob
 
 from DUST.utils.read_output import *
+from DUST.utils.plotting import mpl_base_map_plot
 from DUST.utils.maps import base_map_func
-from DUST.utils.utils import _gen_log_clevs, _gen_flexpart_colormap
+from DUST.utils.utils import _gen_log_clevs, _gen_flexpart_colormap, _fix_time_flexdust
+from DUST.utils.multiply_emsfield import multi_flexpart_flexdust
 
 import xarray as xr
-from xarray import Dataset
+import xarray
 
 from IPython import embed
 
@@ -31,43 +32,109 @@ mpl.rcParams['xtick.labelsize'] = 'large'
 mpl.rcParams['ytick.labelsize'] = 'large'
 #Note Does not work with nested output yet!
 
+def multiply_flexpart_flexdust(flexdust, outpath='./out', locations=None, ncFiles = None, path = None, zlib=True):
+    """
+    DESCRIPTION
+    ===========
+
+        Goes through all subdirectories in path looking for flexpart netcdf files with .nc 
+        file extension. Then multiply corresponding emission sensitivities with emission field 
+
+    USAGE:
+    ======
+
+        flexdust           : path to flexdust output folder/output or xarray.Dataset containing flexdust output
+        outpath (optional) : directory for where the combined data are going to be stored
+        locations(optional): receptor location in flexpart either interger or string containing the name, 
+                             correspoding to RELCOM in FLEXPART release file. If not provided all locations is used.
+        ncFiles (optional) : List of paths to flexpart output files 
+        path (optional)    : path to top directory of flexpart output which is search recursively looking 
+                             for FLEXPART netcdf files, either ncFiles or path has to be provided!
+
+        returns: python list containing paths to multiplied flexpart / flexdust output   
+    
+    """
+
+    if ncFiles:
+        ncFiles = ncFiles
+    elif  path:
+        ncFiles = glob.glob(path + "/**/grid*.nc", recursive=True)
+    else:
+        raise(NameError("Both path and ncFiles is None"))
+
+    files = []
+    if os.path.isdir(outpath):
+        pass
+    else:
+        os.mkdir(outpath)
+
+
+    d = xr.open_dataset(ncFiles[0])
+    for i , com in enumerate(d.RELCOM):
+        loc = str(com.values)[2:].strip().split()[0]
+        if locations:
+            if loc or i in locations:
+                files.append(multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib), )    
+        else:
+            files.append(multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib))
+
+
+    d.close()
+    return files
+
 def read_multiple_flexpart_output(path):
     """
     DESCRIPTION
     ===========
         Reads in FLEXPART output files in a parent directory
-        assume the following folder structure '/partentdir/XXXXXX_simulation/output/'  
+        recursively looks for netcdf files with *.nc file extension
 
     USAGE
     =====
         dsets = read_multiple_flexpart_output(path)
 
         return : python dictionary containing xarray datasets
+
     """
 
-    dsets = {}
-    for paths in os.listdir(path):
-    
-        dsets[paths] = read_flexpart_output(path + paths + '/output/')['ems_sens']
+    nc_files = glob.glob(path + "/**/*.nc", recursive=True)
+    dsets = xr.open_mfdataset(ncfiles)
     return dsets
 
 
 def read_flexpart_output(output_dir, nclusters=5):
+    """
+    DESCRIPTION
+    ===========
+
+        Takes in the path to a flexpart output directory and reads in 
+        namelists, trajectories and netcdf file if present in the output 
+        directory.
+
+    USAGE
+    =====
+        output_dir : str containing path to FLEXPART output directory
+
+        fp = read_flexpart(output_dir)
+
+        return : python directory 
+    """
     traj_df = None
     outs = {}
-    for file in os.listdir(output_dir):
-        if file.endswith('.nc'):
-            ncfile = xr.open_dataset(output_dir + file)
-            outs['ems_sens'] = ncfile 
-        elif 'COMMAND.namelist' in file:
+    for files in os.listdir(output_dir):
+        if files.endswith('.nc'):
+            ncfile = xr.open_dataset(output_dir + files)
+            ncfile = ncfile.rename(dict(latitude = 'lat', longitude='lon'))
+            outs['data'] = ncfile 
+        elif 'COMMAND.namelist' in files:
             com_dict = read_command_namelist(output_dir)
             outs['command'] = com_dict
-        elif 'RELEASES.namelist' in file:
+        elif 'RELEASES.namelist' in files:
             rel_df = read_release_namelist(output_dir)
             outs['releases'] = rel_df
-        elif 'OUTGRID.namelist' in file:
+        elif 'OUTGRID.namelist' in files:
             out_dict = read_outGrid_namelist(output_dir)
-        elif 'trajectories.txt' in file:
+        elif 'trajectories.txt' in files:
             traj_df = read_trajectories(output_dir, nclusters)
             outs['trajectories'] = traj_df
         else:
@@ -76,45 +143,78 @@ def read_flexpart_output(output_dir, nclusters=5):
     return outs
 
 
-def read_flexdust_output(path_output_folder):
+def read_flexdust_output(path_output):
+    """
+    DESCRIPTION
+    ===========
+        Takes in a path to a FLEXDUST output folder/output file.
+        If path directly to the FLEXDUST output file is provided then xarray.dataset is returned
+        otherwise return a python dictionary, contaning the information in the summary file and
+        a xarray.dataset
+
+    USAGE
+    =====
+        fd = read_flexdust_output(path_output)
+
+        returns : python dictionart/xarray.dataset
+
+    """
     outdir = {}
-    for output_file in os.listdir(path_output_folder):
-        if output_file.endswith('.nc'):
-            ncfile = path_output_folder + output_file
-            dset = xr.open_dataset(ncfile, decode_times=False)
-            s_date = dset.startdate.values 
-            s_hour = dset.starthour.values
-            s_dT =  pd.to_timedelta(s_hour,unit='h') 
-            sTime = pd.to_datetime(s_date, format='%Y%m%d') + s_dT 
-            time_index = np.unique(np.reshape(dset.Date.values,dset.Date.shape[0]*2))
-            time_freq = int((time_index[1]- time_index[0])/60/60)
-            nTimeSteps = len(time_index)-1
-            time_index = pd.date_range(start='{}'.format(sTime.strftime('%Y%m%d %H:%M:%S').values[
-                    0]), periods=nTimeSteps, freq='{}h'.format(time_freq))
-            dset['time'] = time_index
-            outdir['dset'] =dset
-        elif output_file.endswith('.txt'):
-            summary_dir = read_flex_dust_summary(path_output_folder + output_file)
-            outdir['Summary'] = summary_dir
-        else:
-            continue
+    if path_output.endswith('.nc'):
+        outdir = _fix_time_flexdust
+    else:
+        for output_file in os.listdir(path_output):
+            if output_file.endswith('.nc'):
+                ncfile = path_output + output_file
+
+                outdir['dset'] =_fix_time_flexdust(ncfile)
+            elif output_file.endswith('.txt'):
+                summary_dir = read_flex_dust_summary(path_output + output_file)
+                outdir['Summary'] = summary_dir
+            else:
+                continue
 
     return outdir
-
-
-
 
 @xr.register_dataset_accessor('fp')
 class FLEXPART:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
 
-    
-    def plot_total_column(self,pointspec, **kwargs):
-        fig, ax = plot_emission_sensitivity(pointspec,height=None, **kwargs)
+    @property
+    def rename_dims(self):
+        print(self._obj)
+        self._obj = self._obj.rename(dict(latitude = 'lat', longitude='lon'))
 
+    def select_receptor_point(self,pointspec):
+        """
+        DESCRIPTION
+        ===========
+            Selects receptor point
 
-    def plot_emission_sensitivity(self,pointspec, height,
+        USAGE:
+        =====
+            dset_point = dset.fp.select_receptor_point(pointspec): 
+        """
+        return self._obj.sel(pointspec=pointspec,  numspec=pointspec, numpoint=pointspec)
+    def plot_total_column(self,**kwargs):
+        """
+        DESCRIPTION
+        ===========
+            
+            Integrates the height dimmension over all model output layers 
+            and plots the emission sensitivity 
+        
+        USAGE
+        =====
+            fig,ax = dset.fp.plot_emission_sensitivity
+
+            returns: matplotlib.figure, matplotlib.axes
+        """
+        fig, ax = plot_emission_sensitivity(height=None, **kwargs)
+        return fig, ax
+
+    def plot_emission_sensitivity(self, height,
                                     plotting_method = 'pcolormesh',
                                     info_loc = 'lower right',
                                     log = True,
@@ -124,103 +224,45 @@ class FLEXPART:
                                     ax =None,
                                     title=None,
                                     extent = None, 
-                                    cmap =None):
-        ax = ax
-        units = self._obj['spec001_mr'].units
-        data = self._obj['spec001_mr'][:,pointspec,:,:,:,:]
-        if height == None:
-            data = data.sum(dim = 'height')
-            data = data.sum(dim = 'time')
-            data = data[0,:,:]
- 
-        else:
-            height_index = np.argwhere(self._obj.height.values == height)
-            if height_index.shape[1] == 0:
-                raise ValueError("height param {} is not a valid one.".format(height))
-
-            height_index = np.reshape(height_index, height_index.shape[1])
-            data = data[:,:,height_index,:,:]
-            data = data.sum(dim = 'time')
-            data = data[0,0,:,:]
-
-        lons = self._obj.longitude
-        lats = self._obj.latitude
-        lon0 = self._obj.RELLNG1[pointspec]
-        lat0 = self._obj.RELLAT1[pointspec]
-
-
-
-        if figure == None:
-            fig = plt.figure()
-        else:
-            fig = figure
+                                    btimeRange = None,
+                                    **kwargs):
         
-        if ax == None:
-            ax = base_map_func()
-            
-        if extent == None and ax.get_extent() == None:
-            ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
-        elif extent ==None:
-            pass
+  
+        self._obj = self._obj.sel(nageclass=0) #I'm not using ageclass at the moment, this is just to remove the dimmension
+        data = self._obj.spec001_mr
+        
+        data = data.assign_attrs(lon0 =self._obj.RELLNG1.values,
+                        lat0 = self._obj.RELLAT1.values,
+                        relcom = self._obj.RELCOM.values )
+        
+
+        
+
+        if btimeRange == None:
+            data = data.sum(dim='time', keep_attrs=True)
         else:
-            ax.set_extent(extent)
-        if cmap == None:
-            cmap = _gen_flexpart_colormap()
+            try:
+                data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
+            except KeyError:
+                print("Invalid time range provided check `btimeRange`")
+        
+        if height == None:
+            data = data.sum(dim='height', )
         else:
-            cmap = cmap
+            try:
+                data = data.sel(height=height)
+            except KeyError:
+                print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
 
-        if vmin  ==None and vmax == None:
-            dat_min = data.min()
-            dat_max = data.max()
-        elif vmin != None and vmax == None:
-            dat_min = vmin
-            dat_max = data.max()
-        elif vmin == None and vmax != None:
-            dat_min = data.min()
-            dat_max = vmax
-        else:
-            dat_max = vmax
-            dat_min = vmin
 
-        if log:
-            levels = _gen_log_clevs(dat_min, dat_max)
-            norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
-        else:
-            levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
-            norm = None
-
-        if plotting_method == 'pcolormesh':
-            im = ax.pcolormesh(lons, lats, data, transform  = ccrs.PlateCarree(),
-                    norm=norm, 
-                    cmap = cmap)
-        elif plotting_method =='contourf':
-            im = ax.contourf(lons,lats, data, transform  = ccrs.PlateCarree(),
-                    norm=norm, 
-                    cmap = cmap, levels=levels)
-        else:
-            raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
-
-        ax.scatter(lon0, lat0, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
-            
-        im.cmap.set_over(color='k', alpha=0.8)
-
-        cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-        clabels = list(levels[::10])  # #clevs, by 10 steps
-        clabels.append(levels[-1])  # add the last label
-
-        cb = plt.colorbar(im,cax=cax,label = units, extend = 'max')
-        cb.set_ticks(clabels)
-
-        cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
-        cb.ax.minorticks_on()
-
-        plt.axes(ax)
-
-        # Create simulation info string 
+        fig, ax = mpl_base_map_plot(data, 
+                                    plotting_method=plotting_method,
+                                    mark_receptor = True
+                                    )
         start_date = pd.to_datetime(self._obj.iedate + self._obj.ietime, yearfirst=True)
-        rel_start = start_date + self._obj.RELSTART[pointspec].values
-        rel_end = start_date + self._obj.RELEND[pointspec].values
-        rel_part = self._obj.RELPART[pointspec].values
+        rel_start = start_date + self._obj.RELSTART.values
+        rel_end = start_date + self._obj.RELEND.values
+        rel_part = self._obj.RELPART.values
         info_str = ('FLEXPART {}\n'.format(self._obj.source[:25].strip()) +
                     'Release start : {}\n'.format(rel_start.strftime(format='%d/%m/%y %H:%M')) +
                     'Release end : {}\n'.format(rel_end.strftime(format = '%d/%m/%y %H:%M')) +
@@ -229,7 +271,14 @@ class FLEXPART:
 
         anc_text = AnchoredText(info_str, loc=info_loc ,bbox_transform=ax.transAxes,prop=dict(size=8))
         ax.add_artist(anc_text)
-
+        
+        if extent == None and ax.get_extent() == None:
+            ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
+        elif extent ==None:
+            pass
+        else:
+            ax.set_extent(extent)
+ 
         if title != None:
             ax.set_title(title)
         else:
@@ -243,10 +292,11 @@ class FLEXPART:
 
 
 
-@xr.register_dataset_accessor('dust')
+@xr.register_dataset_accessor('fd')
 class FLEXDUST:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
+        
 
     def _integrate_area(self, unit):
         if unit == 'kg':
@@ -361,8 +411,6 @@ class FLEXDUST:
             ax = base_map_func()
         else:
             ax = ax
-        lons = self._obj.lon.values
-        lats = self._obj.lat.values
 
         if freq == None:
             pass
@@ -378,80 +426,19 @@ class FLEXDUST:
 
         if unit == 'kg':
             data = data*self._obj.area.values[0]
-            units = '$\mathrm{kg}$'
+            data['units'] = '$\mathrm{kg}$'
         elif unit== 'kg/m2':
             data = data
-            units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+            data['units'] = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
         else:
             raise ValueError("`unit` param '%s' is not a valid one." % unit)
 
-        if fig == None:
-            fig = plt.figure(figsize=(10,8))
-        else:
-            fig = fig
         if title == None:
             plt.suptitle('FLEXDUST estimated accumulated emissions', fontsize=18,y=0.8)
         else:
             plt.suptitle(title, fontsize=18,y=0.8)
-
-
-        if cmap == None:
-            cmap = _gen_flexpart_colormap()
-        else:
-            cmap = cmap
-
-        if vmin  ==None and vmax == None:
-            dat_min = data.min()
-            dat_max = data.max()
-        elif vmin != None and vmax == None:
-            dat_min = vmin
-            dat_max = data.max()
-        elif vmin == None and vmax != None:
-            dat_min = data.min()
-            dat_max = vmax
-        else:
-            dat_max = vmax
-            dat_min = vmin
-
-        if log:
-            levels = _gen_log_clevs(dat_min, dat_max)
-            norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
-            formater = LogFormatterSciNotation()
-        else:
-            levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
-            norm = None
-            formater = None
-
-        if plotting_method == 'pcolormesh':
-            im = ax.pcolormesh(lons, lats, data, transform  = ccrs.PlateCarree(),
-                    norm=norm, 
-                    cmap = cmap)
-        elif plotting_method =='contourf':
-            im = ax.contourf(lons,lats, data, transform  = ccrs.PlateCarree(),
-                    norm=norm, 
-                    cmap = cmap, levels=levels)
-        else:
-            raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
-        
-
-        im.cmap.set_over(color='k', alpha=0.8)
-
-        cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-        clabels = list(levels[::10])  # #clevs, by 10 steps
-        clabels.append(levels[-1])  # add the last label
-        # formater = LogFormatter(10, labelOnlyBase=False) 
-        cb = plt.colorbar(im,cax=cax,label = units, extend = 'max', format = formater,)
-        # cb.set_ticks(clabels)
-        
-        # cb.set_ticklabels(['%3.2g' % cl for cl in clabels])
-        # cb.ax.ticklabel_format(axis = 'y', style = 'sci',useMathText=True, scilimits = (0,0))
-        # cb.ax.axis([1, 10000, 1, 1000000])
-        cb.ax.minorticks_on()
-
-
-
-
-        plt.axes(ax)
+        fig, ax = mpl_base_map_plot(data,log=log, cmap=cmap)
+        return fig, ax
 
 
     def resample_data(self, freq, method='mean'):

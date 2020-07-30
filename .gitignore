@@ -13,3 +13,4 @@
 
 # Other
 **/.vscode/
+**/*.egg-info
