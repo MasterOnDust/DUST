@@ -21,7 +21,7 @@ from DUST.utils.utils import _gen_log_clevs, _gen_flexpart_colormap, _fix_time_f
 from DUST.utils.multiply_emsfield import multi_flexpart_flexdust
 
 import xarray as xr
-
+import xarray
 
 from IPython import embed
 
@@ -31,6 +31,56 @@ mpl.rcParams['axes.labelsize'] = 'x-large'
 mpl.rcParams['xtick.labelsize'] = 'large'
 mpl.rcParams['ytick.labelsize'] = 'large'
 #Note Does not work with nested output yet!
+
+def multiply_flexpart_flexdust(flexdust, outpath='./out', locations=None, ncFiles = None, path = None, zlib=True):
+    """
+    DESCRIPTION
+    ===========
+
+        Goes through all subdirectories in path looking for flexpart netcdf files with .nc 
+        file extension. Then multiply corresponding emission sensitivities with emission field 
+
+    USAGE:
+    ======
+
+        flexdust           : path to flexdust output folder/output or xarray.Dataset containing flexdust output
+        outpath (optional) : directory for where the combined data are going to be stored
+        locations(optional): receptor location in flexpart either interger or string containing the name, 
+                             correspoding to RELCOM in FLEXPART release file. If not provided all locations is used.
+        ncFiles (optional) : List of paths to flexpart output files 
+        path (optional)    : path to top directory of flexpart output which is search recursively looking 
+                             for FLEXPART netcdf files, either ncFiles or path has to be provided!
+
+        returns: python list containing paths to multiplied flexpart / flexdust output   
+    
+    """
+
+    if ncFiles:
+        ncFiles = ncFiles
+    elif  path:
+        ncFiles = glob.glob(path + "/**/grid*.nc", recursive=True)
+    else:
+        raise(NameError("Both path and ncFiles is None"))
+
+    files = []
+    if os.path.isdir(outpath):
+        pass
+    else:
+        os.mkdir(outpath)
+
+
+    d = xr.open_dataset(ncFiles[0])
+    for i , com in enumerate(d.RELCOM):
+        loc = str(com.values)[2:].strip().split()[0]
+        if locations:
+            if loc or i in locations:
+                files.append(multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib), )    
+        else:
+            files.append(multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib))
+
+
+    d.close()
+    return files
 
 def read_multiple_flexpart_output(path):
     """
@@ -205,10 +255,6 @@ class FLEXPART:
                 print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
 
 
-
-        # Create simulation info string 
-
-
         fig, ax = mpl_base_map_plot(data, 
                                     plotting_method=plotting_method,
                                     mark_receptor = True
@@ -246,7 +292,7 @@ class FLEXPART:
 
 
 
-@xr.register_dataset_accessor('dust')
+@xr.register_dataset_accessor('fd')
 class FLEXDUST:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
