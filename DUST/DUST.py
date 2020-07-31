@@ -82,7 +82,7 @@ def multiply_flexpart_flexdust(flexdust, outpath='./out', locations=None, ncFile
     d.close()
     return files
 
-def read_multiple_flexpart_output(path):
+def read_multiple_flexpart_output(path, ldirect=-1):
     """
     DESCRIPTION
     ===========
@@ -96,51 +96,95 @@ def read_multiple_flexpart_output(path):
         return : python dictionary containing xarray datasets
 
     """
+    def not_usefull(ds):
+        essentials = ['RELCOM','RELLNG1','RELLNG2','RELLAT1','RELLAT2','RELZZ1','RELZZ2',
+                  'RELKINDZ','RELSTART','RELEND','RELPART','RELXMASS','LAGE','ORO', 'spec001_mr']
+    return  [v for v in ds.data_vars if v not in essentials]
 
-    nc_files = glob.glob(path + "/**/*.nc", recursive=True)
-    dsets = xr.open_mfdataset(ncfiles)
+    def pre(ds):
+        ds = ds.rename(rename(dict(longitude = 'lon', time= 'btime', latitude='lat')))
+        ds = ds.assign_coords(time=pd.to_datetime(ds.iedate + ds.ietime))
+        return ds
+    
+
+    nc_files = glob.glob(path + "/**/grid*.nc", recursive=True)
+    dsets = xr.open_mfdataset(nc_files, preprocess=pre, decode_times=False, 
+                            combine='nested', concat_dim='time', parallel=True)
+    if ldirect < 0:
+        dsets = dsets.drop(not_usefull(dsets))
+
     return dsets
 
 
-def read_flexpart_output(output_dir, nclusters=5):
+def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
     """
     DESCRIPTION
     ===========
 
-        Takes in the path to a flexpart output directory and reads in 
-        namelists, trajectories and netcdf file if present in the output 
-        directory.
+        Takes in the path to a flexpart output directory or a FLEXPART output file. 
+        If a path to a output directory is provided then it will read all the FLEXPART 
+        output files present in that directory and return it as a python directory. If a full path 
+        to a FLEXPART output file is provided then it will only read that specific output file.   
+
 
     USAGE
     =====
-        output_dir : str containing path to FLEXPART output directory
+    
+        flexpart_output : str containing path to FLEXPART output directory or a FLEXPART
+                          output file. 
 
-        fp = read_flexpart(output_dir)
+        fp = read_flexpart(flexpart_output)
 
-        return : python directory 
+        return : python directory / pandas.dataframe / xarray.dataset
+    
     """
-    traj_df = None
+    def not_usefull(ds):
+        essentials = ['RELCOM','RELLNG1','RELLNG2','RELLAT1','RELLAT2','RELZZ1','RELZZ2',
+                  'RELKINDZ','RELSTART','RELEND','RELPART','RELXMASS','LAGE','ORO', 'spec001_mr']
+        return  [v for v in ds.data_vars if v not in essentials]
     outs = {}
-    for files in os.listdir(output_dir):
-        if files.endswith('.nc'):
-            ncfile = xr.open_dataset(output_dir + files)
+    if os.path.isfile(flexpart_output):
+        path = flexpart_output.split('/')
+        files = [path[-1]]
+        out_dir = str()
+        for s in path[:-1]:
+            out_dir += s + '/'  
+    elif os.path.isdirectory(flexpart_output):
+        files = os.listdir(flexpart_output)
+        if flexpart_output.endswith('/'):
+            out_dir = flexpart_output
+        else:
+            out_dir = flexpart_output + '/'
+
+    else:
+        raise(ValueError('flexpart_output has to be a string not {}'.format(type(flexpart_output))))
+    
+
+    for f in files:
+        if f.endswith('.nc'):
+            ncfile = xr.open_dataset(out_dir + f)
             ncfile = ncfile.rename(dict(latitude = 'lat', longitude='lon'))
-            outs['data'] = ncfile 
-        elif 'COMMAND.namelist' in files:
-            com_dict = read_command_namelist(output_dir)
+            if ldirect < 0:
+                outs['data'] = ncfile.drop(not_usefull(ncfile))
+            else:
+                outs['data'] = ncfile 
+        elif 'COMMAND.namelist' in f:
+            com_dict = read_command_namelist(out_dir)
             outs['command'] = com_dict
-        elif 'RELEASES.namelist' in files:
-            rel_df = read_release_namelist(output_dir)
+        elif 'RELEASES.namelist' in f:
+            rel_df = read_release_namelist(out_dir)
             outs['releases'] = rel_df
-        elif 'OUTGRID.namelist' in files:
-            out_dict = read_outGrid_namelist(output_dir)
-        elif 'trajectories.txt' in files:
-            traj_df = read_trajectories(output_dir, nclusters)
-            outs['trajectories'] = traj_df
+        elif 'OUTGRID.namelist' in f:
+            out_dict = read_outGrid_namelist(out_dir)
+        elif 'trajectories.txt' in f:
+            outs['trajectories'] = read_trajectories(out_dir, nclusters)
         else:
             continue
-    
-    return outs
+    if len(outs.keys()) == 1:
+        key = [key for key in outs.keys()][0]
+        return outs[key]
+    else:
+        return outs
 
 
 def read_flexdust_output(path_output):
@@ -161,7 +205,7 @@ def read_flexdust_output(path_output):
     """
     outdir = {}
     if path_output.endswith('.nc'):
-        outdir = _fix_time_flexdust
+        outdir = _fix_time_flexdust(path_output)
     else:
         for output_file in os.listdir(path_output):
             if output_file.endswith('.nc'):
@@ -173,20 +217,18 @@ def read_flexdust_output(path_output):
                 outdir['Summary'] = summary_dir
             else:
                 continue
-
-    return outdir
+    if len(outs.keys()) == 1:
+        key = [key for key in outs.keys()][0]
+        return outdir[key]
+    else:
+        return outdir
 
 @xr.register_dataset_accessor('fp')
 class FLEXPART:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
 
-    @property
-    def rename_dims(self):
-        print(self._obj)
-        self._obj = self._obj.rename(dict(latitude = 'lat', longitude='lon'))
-
-    def select_receptor_point(self,pointspec):
+    def select_receptor_point(self,pointspec, nAgeclass =False):
         """
         DESCRIPTION
         ===========
@@ -196,7 +238,10 @@ class FLEXPART:
         =====
             dset_point = dset.fp.select_receptor_point(pointspec): 
         """
-        return self._obj.sel(pointspec=pointspec,  numspec=pointspec, numpoint=pointspec)
+        if nAgeclass == False:
+            _obj = self._obj.sel(nageclass=0)
+
+        return _obj.sel(pointspec=pointspec,  numspec=pointspec, numpoint=pointspec)
     def plot_total_column(self,**kwargs):
         """
         DESCRIPTION
@@ -418,18 +463,18 @@ class FLEXDUST:
             self._obj = self.resample_data(freq=freq, method='sum')
 
         if reduce == 'mean':
-            data = self._obj.Emission.mean(dim='time')
+            data = self._obj.Emission.mean(dim='time', keep_attrs=True)
         elif reduce == 'sum': 
-            data = self._obj.Emission.sum(dim='time')
+            data = self._obj.Emission.sum(dim='time', keep_attrs=True)
         else:
             raise ValueError("`reduce` param '%s' is not a valid one." % unit)
 
         if unit == 'kg':
             data = data*self._obj.area.values[0]
-            data['units'] = '$\mathrm{kg}$'
+            data = data.assign_attrs(units = '$\mathrm{kg}$')
         elif unit== 'kg/m2':
             data = data
-            data['units'] = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+            data = data.assign_attrs(units ='$\mathrm{kg}\; \mathrm{m}^{-2}$')
         else:
             raise ValueError("`unit` param '%s' is not a valid one." % unit)
 

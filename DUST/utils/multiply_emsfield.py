@@ -83,14 +83,14 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
         ncfile = Dataset(outFileName, 'w', format="NETCDF4")
     except PermissionError:
         # If netcdf file exist delete old one
-        os.remove(path)
-        ncfile = Dataset(path, 'w', format='NETCDF4') 
+        os.remove(outFileName)
+        ncfile = Dataset(outFileName, 'w', format='NETCDF4') 
     
     #Setup attributes
     ncfile.title = 'Flexpart - Flexdust SSR'
     ncfile.history = "Created " + time.ctime(time.time())
     ncfile.flexpart_v = d0.source
-    ncfile.receptor_name = str(d0.RELCOM.values)[2:].strip()
+    ncfile.receptor_name = relcom
     ncfile.reference = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482'
 
 
@@ -152,6 +152,7 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     field.height = d0.height.values     #set the height of the lowest model output layer
     field.lon0 = d0.RELLNG1.values
     field.lat0 = d0.RELLAT1.values
+    field.name_location = relcom.split()[0]
     td = pd.to_timedelta(d0.time.values, unit='s')
     
     time_steps = []

@@ -32,7 +32,7 @@ USAGE:
 """
 def read_command_namelist(output_dir):
     comDict = {}
-    lines = open(output_dir + '/COMMAND.namelist', 'r')
+    lines = open(output_dir + 'COMMAND.namelist', 'r')
     lines.readline()
     for line in lines:
         var_val = line.split('=', 1)
