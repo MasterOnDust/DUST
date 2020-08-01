@@ -99,10 +99,10 @@ def read_multiple_flexpart_output(path, ldirect=-1):
     def not_usefull(ds):
         essentials = ['RELCOM','RELLNG1','RELLNG2','RELLAT1','RELLAT2','RELZZ1','RELZZ2',
                   'RELKINDZ','RELSTART','RELEND','RELPART','RELXMASS','LAGE','ORO', 'spec001_mr']
-    return  [v for v in ds.data_vars if v not in essentials]
+        return  [v for v in ds.data_vars if v not in essentials]
 
     def pre(ds):
-        ds = ds.rename(rename(dict(longitude = 'lon', time= 'btime', latitude='lat')))
+        ds = ds.rename(dict(longitude = 'lon', time= 'btime', latitude='lat'))
         ds = ds.assign_coords(time=pd.to_datetime(ds.iedate + ds.ietime))
         return ds
     
@@ -217,7 +217,7 @@ def read_flexdust_output(path_output):
                 outdir['Summary'] = summary_dir
             else:
                 continue
-    if len(outs.keys()) == 1:
+    if len(outdir.keys()) == 1:
         key = [key for key in outs.keys()][0]
         return outdir[key]
     else:
