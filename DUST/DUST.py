@@ -271,7 +271,7 @@ class DUSTBase(object):
 
 
 
-@xr.register_dataset_accessor('sfp')
+@xr.register_dataset_accessor('fp')
 class FLEXPART(DUSTBase):
     def __init__(self, xarray_dset):
         super(FLEXPART, self).__init(xarray)
@@ -321,6 +321,25 @@ class FLEXPART(DUSTBase):
                         relcom = self._obj.RELCOM.values )
         return data
         
+    def make_data_container(data, height=None,
+                            btimeRange=None, data_var='spec001_mr'):
+        
+        if btimeRange == None:
+            data = data.sum(dim='time', keep_attrs=True)
+        else:
+            try:
+                data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
+            except KeyError:
+                print("Invalid time range provided check `btimeRange`")
+        
+        if height == None:
+            data = data.sum(dim='height')
+        else:
+            try:
+                data = data.sel(height=height)
+            except KeyError:
+                print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
+        data = _set_da_attrs(data_var)
 
     def plot_emission_sensitivity(self, height,
                                     data_var = 'spec001_mr',
@@ -337,30 +356,7 @@ class FLEXPART(DUSTBase):
                                     **kwargs):
         
   
-        data = _set_da_attrs(data_var)
-        
-        data = data.assign_attrs(lon0 =self._obj.RELLNG1.values,
-                        lat0 = self._obj.RELLAT1.values,
-                        relcom = self._obj.RELCOM.values )
-        
-
-        
-
-        if btimeRange == None:
-            data = data.sum(dim='time', keep_attrs=True)
-        else:
-            try:
-                data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
-            except KeyError:
-                print("Invalid time range provided check `btimeRange`")
-        
-        if height == None:
-            data = data.sum(dim='height')
-        else:
-            try:
-                data = data.sel(height=height)
-            except KeyError:
-                print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
+        data = make_data_container(data, height, btimeRange, data_var)
 
 
         fig, ax = mpl_base_map_plot(data, 
