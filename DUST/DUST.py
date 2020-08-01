@@ -276,28 +276,7 @@ class FLEXPART:
         self._obj = self._obj.sel(nageclass=0) #I'm not using ageclass at the moment, this is just to remove the dimmension
         data = self._obj.spec001_mr
         
-        data = data.assign_attrs(lon0 =self._obj.RELLNG1.values,
-                        lat0 = self._obj.RELLAT1.values,
-                        relcom = self._obj.RELCOM.values )
-        
 
-        
-
-        if btimeRange == None:
-            data = data.sum(dim='time', keep_attrs=True)
-        else:
-            try:
-                data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
-            except KeyError:
-                print("Invalid time range provided check `btimeRange`")
-        
-        if height == None:
-            data = data.sum(dim='height', )
-        else:
-            try:
-                data = data.sel(height=height)
-            except KeyError:
-                print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
 
 
         fig, ax = mpl_base_map_plot(data, 
@@ -335,6 +314,30 @@ class FLEXPART:
                 ,fontsize=16)
         return fig, ax
 
+        def _flexpart_dataArray(self,data,height, btimeRange):
+            data = data.assign_attrs(lon0 =self._obj.RELLNG1.values,
+                lat0 = self._obj.RELLAT1.values,
+                relcom = self._obj.RELCOM.values)
+        
+
+        
+
+            if btimeRange == None:
+                data = data.sum(dim='time', keep_attrs=True)
+            else:
+                try:
+                    data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
+                except KeyError:
+                    print("Invalid time range provided check `btimeRange`")
+            
+            if height == None:
+                data = data.sum(dim='height')
+            else:
+                try:
+                    data = data.sel(height=height)
+                except KeyError:
+                    print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
+            return data
 
 
 @xr.register_dataset_accessor('fd')
