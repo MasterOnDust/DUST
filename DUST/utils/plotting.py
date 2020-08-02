@@ -20,6 +20,7 @@ def mpl_base_map_plot(data,
                     vmin = None,
                     vmax = None,
                     ax = None,
+                    fig = None,
                     **kwargs):
     print()
     """
@@ -30,7 +31,7 @@ def mpl_base_map_plot(data,
     USAGE:
     ======
     """
-    default_options = {'cmap': None, 'fig' : None, 'mark_receptor': False,
+    default_options = {'cmap': None, 'mark_receptor': False,
                          'colorbar': True}
 
     default_options.update(kwargs)

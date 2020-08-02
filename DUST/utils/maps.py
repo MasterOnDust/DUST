@@ -1,13 +1,16 @@
-import matplotlib.pyplot as plt
+import cartopy as cr
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import cartopy.io.img_tiles as cimgt
 import cartopy.io.shapereader as shpreader
-import matplotlib.patheffects as PathEffects
-from shapely.geometry import LineString, MultiLineString
-import cartopy as cr
-import matplotlib.colors as mcolors
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as PathEffects
+import matplotlib.colors as mcolors
+
+from shapely.geometry import LineString, MultiLineString
+
 
 
 """
@@ -93,10 +96,25 @@ def tracing_the_winds_map(ax  = None):
     ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
 
     gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
-    gl.xlabels_top = False
-    gl.ylabels_right = False
+    gl.top_labels = False
+    gl.right_labels = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
+
+def map_terrain_china(ax=None, fig=None):
+    stamen_terrain = cimgt.Stamen('terrain-background')
+    if fig ==None:
+        fig = plt.figure(figsize=(10,8))
+        ax = fig.add_subplot(1,1,1,projection=stamen_terrain.crs)
+    elif ax ==None:
+        ax = fig.add_subplot(1,1,1,projection=stamen_terrain.crs)
+    else:
+        pass
+    
+    ax = map_china(ax)
+    ax.add_image(stamen_terrain, 8)
+    
+    return fig ,ax
 
 
 def map_china(ax=None, extent=None):
@@ -124,14 +142,14 @@ def map_china(ax=None, extent=None):
 
     ax.add_feature(boundary_10m, edgecolor='gray')
     ax.coastlines('10m', color='gray', alpha=0.8)
-    # ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
+    ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
     gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
-    gl.xlabels_top = False
-    gl.ylabels_right = False
+    gl.top_labels = False
+    gl.right_labels = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
 
-
+    return ax
 
 
 def base_map_func(ax):
@@ -140,7 +158,8 @@ def base_map_func(ax):
     # ax.add_feature(land_50m)
     ax.add_feature(cr.feature.BORDERS)
     gl = ax.gridlines(crs = ccrs.PlateCarree(), draw_labels = True, color = 'grey', alpha = 0.6, linestyle = '--')
-    gl.xlabels_top = False; gl.ylabels_right = False
+    gl.top_labels = False
+    gl.right_labels = False
 
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
