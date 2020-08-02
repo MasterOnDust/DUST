@@ -33,13 +33,17 @@ def mpl_base_map_plot(data,
     """
     default_options = {'cmap': None, 'mark_receptor': False,
                          'colorbar': True}
-
+    
     default_options.update(kwargs)
-
+    fig = default_options['fig']
+    if fig == None:
+        fig = plt.figure()
     
     if ax == None:
+        
+        ax = fig.add_subplot(1,1,1)
         ax = plt.axes(projection=ccrs.PlateCarree())
-        base_map_func(ax)
+        ax = base_map_func(ax)
     else: 
         ax = ax
     if default_options['cmap'] == None:
@@ -96,7 +100,7 @@ def mpl_base_map_plot(data,
 
         plt.axes(ax)
 
-    return ax
+    return fig, ax
 
 
 def make_animation(data ,map_func, 

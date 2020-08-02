@@ -163,3 +163,4 @@ def base_map_func(ax):
 
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
+    return ax

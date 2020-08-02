@@ -103,15 +103,34 @@ def read_multiple_flexpart_output(path, ldirect=-1):
 
     def pre(ds):
         ds = ds.rename(dict(longitude = 'lon', time= 'btime', latitude='lat'))
+
         ds = ds.assign_coords(time=pd.to_datetime(ds.iedate + ds.ietime))
+
+
         return ds
     
 
     nc_files = glob.glob(path + "/**/grid*.nc", recursive=True)
-    dsets = xr.open_mfdataset(nc_files, preprocess=pre, decode_times=False, 
-                            combine='nested', concat_dim='time', parallel=True)
+    dsets = xr.open_mfdataset(nc_files, preprocess=(pre), decode_times=False, 
+                            combine='nested', concat_dim='time', parallel=True,data_vars='minimal')
+    
+    # d0 = xr.open_dataset(nc_files[0])
+
+    # Removing the time dimension from variables that does not change, maybe there is some better way?
+    # dsets = dsets.assign(dict(RELLNG1 = d0.RELLNG1, RELLNG2=d0.RELLNG2, RELLAT1 = d0.RELLAT1, RELLAT2=d0.RELLAT2, RELCOM=d0.RELCOM))
     if ldirect < 0:
         dsets = dsets.drop(not_usefull(dsets))
+
+    dsets = dsets.assign(dict(RELCOM = dsets.RELCOM[0],
+                         RELLNG1 = dsets.RELLNG1[0], RELLNG2=dsets.RELLNG2[0], 
+                          RELLAT1 = dsets.RELLAT1[0], RELLAT2=dsets.RELLAT2[0],RELPART = dsets.RELPART.sum(dim='time'),
+                         RELSTART = dsets.RELSTART[0], RELEND = dsets.RELEND[-1], LAGE = dsets.LAGE[0], RELZZ1 = dsets.RELZZ1[0],
+                         RELZZ2 = dsets.RELZZ2[0], RELKINDZ=dsets.RELKINDZ[0]))
+
+    edate = pd.to_datetime(dsets.time[-1].values)
+
+    dsets = dsets.assign_attrs(dict(iedate = edate.strftime('%Y%m%d'), 
+                                ietime = edate.strftime('%H%M%S')))
 
     return dsets
 
@@ -165,7 +184,7 @@ def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
             ncfile = xr.open_dataset(out_dir + f)
             ncfile = ncfile.rename(dict(latitude = 'lat', longitude='lon'))
             if ldirect < 0:
-                outs['data'] = ncfile.drop(not_usefull(ncfile))
+                outs['data'] = ncfile.drop_vars(not_usefull(ncfile))
             else:
                 outs['data'] = ncfile 
         elif 'COMMAND.namelist' in f:
@@ -228,6 +247,7 @@ class DUSTBase(object):
 
         self._x_dim = None
         self._y_dim = None
+        self._RELCOM = None
 
         if "lon" in self._obj.dims and "lat" in self._obj.dims:
             self._x_dim = "lon"
@@ -256,6 +276,7 @@ class DUSTBase(object):
         # preserve attribute information
         obj_copy.fp._x_dim = self._x_dim
         obj_copy.fp._y_dim = self._y_dim
+        obj_copy.fp._RELCOM = self._RELCOM
 
         return obj_copy
     @property
@@ -267,15 +288,33 @@ class DUSTBase(object):
         """str : name of the y dimension"""
         return self._y_dim 
 
+    def sum(self,dim,keep_attrs=True, **kwargs):
+        if 'RELCOM' in self._obj.data_vars:
+            RELCOM = self._RELCOM
+            ds_sum = self._obj.sum(dim, keep_attrs=keep_attrs, **kwargs)
+            ds_sum = ds_sum.assign(RELCOM = self._RELCOM)
+        else:
+            ds_sum = self._obj.sum(dim, keep_attrs=keep_attrs, **kwargs)
+        
+        return ds_sum
 
 
+    def mean(self, dim, keep_attrs=True, **kwargs):
+        if 'RELCOM'in self._obj.data_vars:
 
+            ds_mean = self._obj.mean(dim, keep_attrs=keep_attrs, **kwargs)
+            ds_mean = ds_mean.assign(RELCOM = self._RELCOM)
+        else:
+
+            ds_mean = self._obj.mean(dim, keep_attrs=keep_attrs, **kwargs)    
+        return ds_mean
 
 @xr.register_dataset_accessor('fp')
 class FLEXPART(DUSTBase):
-    def __init__(self, xarray_dset):
-        super(FLEXPART, self).__init(xarray)
+    def __init__(self, xarray_obj):
+        super(FLEXPART, self).__init__(xarray_obj)
 
+        self._RELCOM = self._obj.RELCOM
 
 
 
@@ -310,11 +349,11 @@ class FLEXPART(DUSTBase):
 
             returns: matplotlib.figure, matplotlib.axes
         """
-        fig, ax = plot_emission_sensitivity(height=None, **kwargs)
+        fig, ax = self.plot_emission_sensitivity(height=None, **kwargs)
         return fig, ax
 
-    def _set_da_attrs(data_var):
-        data = self._obj[data_var]
+    def _set_da_attrs(self,data):
+
         
 
         data = data.assign_attrs(lon0 =self._obj.RELLNG1.values,
@@ -322,16 +361,26 @@ class FLEXPART(DUSTBase):
                         relcom = self._obj.RELCOM.values )
         return data
         
-    def make_data_container(data, height=None,
+    def make_data_container(self,height=None,
                             btimeRange=None, data_var='spec001_mr'):
+        """
+        DESCRIPTION
+        ===========
+            Constructs the xrarray.DataArray which is expected by the mpl_base_map_plot 
+            routine. 
+
+        """
         
-        if btimeRange == None:
-            data = data.sum(dim='time', keep_attrs=True)
-        else:
-            try:
-                data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
-            except KeyError:
-                print("Invalid time range provided check `btimeRange`")
+        data = self._obj[data_var]
+
+        if 'time' in self._obj.dims:
+            if btimeRange == None:
+                data = data.sum(dim='time', keep_attrs=True)
+            else:
+                try:
+                    data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
+                except KeyError:
+                    print("Invalid time range provided check `btimeRange`")
         
         if height == None:
             data = data.sum(dim='height')
@@ -340,7 +389,8 @@ class FLEXPART(DUSTBase):
                 data = data.sel(height=height)
             except KeyError:
                 print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
-        data = _set_da_attrs(data_var)
+        data = self._set_da_attrs(data)
+        return data
 
     def plot_emission_sensitivity(self, height,
                                     data_var = 'spec001_mr',
@@ -357,17 +407,19 @@ class FLEXPART(DUSTBase):
                                     **kwargs):
         
   
-        data = make_data_container(data, height, btimeRange, data_var)
+        data = self.make_data_container(height, btimeRange, data_var)
+
+        if figure == None:
+            fig = plt.figure()
 
 
-
-        fig, ax = mpl_base_map_plot(data, 
+        fig, ax = mpl_base_map_plot(data, ax=ax, fig=fig,
                                     plotting_method=plotting_method,
                                     mark_receptor = True
                                     )
         start_date = pd.to_datetime(self._obj.iedate + self._obj.ietime, yearfirst=True)
-        rel_start = start_date + self._obj.RELSTART.values
-        rel_end = start_date + self._obj.RELEND.values
+        rel_start = start_date + pd.to_timedelta(self._obj.RELSTART.values)
+        rel_end = start_date + pd.to_timedelta(self._obj.RELEND.values)
         rel_part = self._obj.RELPART.values
         info_str = ('FLEXPART {}\n'.format(self._obj.source[:25].strip()) +
                     'Release start : {}\n'.format(rel_start.strftime(format='%d/%m/%y %H:%M')) +
