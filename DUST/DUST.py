@@ -222,13 +222,64 @@ def read_flexdust_output(path_output):
         return outdir[key]
     else:
         return outdir
+class DUSTBase(object):
+    def __init__(self, xarray_obj):
+        self._obj = xarray_obj
+
+        self._x_dim = None
+        self._y_dim = None
+
+        if "lon" in self._obj.dims and "lat" in self._obj.dims:
+            self._x_dim = "lon"
+            self._y_dim = "lat"
+        elif "longitude" in self._obj.dims and "latitude" in self._obj.dims:
+            self._x_dim = "longitude"
+            self._y_dim = "latitude"
+        else:
+            raise(ValueError("Spatial dimmensions not recognized try to rename spatial dims"))
+
+
+    def _get_obj(self, inplace):
+        """
+        Get the object to modify.
+        Parameters
+        ----------
+        inplace: bool
+            If True, returns self.
+        Returns
+        -------
+        :obj:`xarray.Dataset` | :obj:`xarray.DataArray`
+        """
+        if inplace:
+            return self._obj
+        obj_copy = self._obj.copy(deep=True)
+        # preserve attribute information
+        obj_copy.fp._x_dim = self._x_dim
+        obj_copy.fp._y_dim = self._y_dim
+
+        return obj_copy
+    @property
+    def x_dim(self):
+        """str : name of the x dimension"""
+        return self._x_dim
+    @property
+    def y_dim(self):
+        """str : name of the y dimension"""
+        return self._y_dim 
+
+
+
+
 
 @xr.register_dataset_accessor('fp')
-class FLEXPART:
+class FLEXPART(DUSTBase):
     def __init__(self, xarray_dset):
-        self._obj = xarray_dset
+        super(FLEXPART, self).__init(xarray)
 
-    def select_receptor_point(self,pointspec, nAgeclass =False):
+
+
+
+    def select_receptor_point(self,pointspec, nAgeclass =False, inplace=True):
         """
         DESCRIPTION
         ===========
@@ -237,11 +288,14 @@ class FLEXPART:
         USAGE:
         =====
             dset_point = dset.fp.select_receptor_point(pointspec): 
-        """
-        if nAgeclass == False:
-            _obj = self._obj.sel(nageclass=0)
 
-        return _obj.sel(pointspec=pointspec,  numspec=pointspec, numpoint=pointspec)
+        """
+
+        obj = self._get_obj(inplace=inplace)
+        if nAgeclass == False:
+            obj = obj.sel(nageclass=0)
+
+        return obj.sel(pointspec=pointspec,  numspec=pointspec, numpoint=pointspec)
     def plot_total_column(self,**kwargs):
         """
         DESCRIPTION
@@ -259,7 +313,37 @@ class FLEXPART:
         fig, ax = plot_emission_sensitivity(height=None, **kwargs)
         return fig, ax
 
+    def _set_da_attrs(data_var):
+        data = self._obj[data_var]
+        
+
+        data = data.assign_attrs(lon0 =self._obj.RELLNG1.values,
+                        lat0 = self._obj.RELLAT1.values,
+                        relcom = self._obj.RELCOM.values )
+        return data
+        
+    def make_data_container(data, height=None,
+                            btimeRange=None, data_var='spec001_mr'):
+        
+        if btimeRange == None:
+            data = data.sum(dim='time', keep_attrs=True)
+        else:
+            try:
+                data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
+            except KeyError:
+                print("Invalid time range provided check `btimeRange`")
+        
+        if height == None:
+            data = data.sum(dim='height')
+        else:
+            try:
+                data = data.sel(height=height)
+            except KeyError:
+                print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
+        data = _set_da_attrs(data_var)
+
     def plot_emission_sensitivity(self, height,
+                                    data_var = 'spec001_mr',
                                     plotting_method = 'pcolormesh',
                                     info_loc = 'lower right',
                                     log = True,
@@ -273,9 +357,7 @@ class FLEXPART:
                                     **kwargs):
         
   
-        self._obj = self._obj.sel(nageclass=0) #I'm not using ageclass at the moment, this is just to remove the dimmension
-        data = self._obj.spec001_mr
-        
+        data = make_data_container(data, height, btimeRange, data_var)
 
 
 

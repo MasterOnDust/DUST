@@ -1,0 +1,36 @@
+ &RELEASES_CTRL
+ NSPEC   =           2,
+ SPECNUM_REL     = 2*1
+ /
+ &RELEASE
+ IDATE1  =    20190510,
+ ITIME1  =           0,
+ IDATE2  =    20190510,
+ ITIME2  =       30000,
+ LON1    =   104.1370    ,
+ LON2    =   104.1370    ,
+ LAT1    =   35.96400    ,
+ LAT2    =   35.96400    ,
+ Z1      =   100.0000    ,
+ Z2      =   100.0000    ,
+ ZKIND   =      1,
+ MASS    =  1.0000000E+08,  0.0000000E+00,
+ PARTS   =       50000,
+ COMMENT = SACOL FINE-SILT                         
+ /
+ &RELEASE
+ IDATE1  =    20190510,
+ ITIME1  =           0,
+ IDATE2  =    20190510,
+ ITIME2  =       30000,
+ LON1    =   105.0475    ,
+ LON2    =   105.0475    ,
+ LAT1    =   37.74900    ,
+ LAT2    =   37.74900    ,
+ Z1      =   100.0000    ,
+ Z2      =   100.0000    ,
+ ZKIND   =      1,
+ MASS    =  1.0000000E+08,  0.0000000E+00,
+ PARTS   =       50000,
+ COMMENT = SHAPOTOU FINE-SILT                      
+ /
