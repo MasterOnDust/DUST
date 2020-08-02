@@ -362,6 +362,14 @@ class FLEXPART(DUSTBase):
         
     def make_data_container(self,height=None,
                             btimeRange=None, data_var='spec001_mr'):
+        """
+        DESCRIPTION
+        ===========
+            Constructs the xrarray.DataArray which is expected by the mpl_base_map_plot 
+            routine. 
+
+        """
+        
         data = self._obj[data_var]
 
         if 'time' in self._obj.dims:
