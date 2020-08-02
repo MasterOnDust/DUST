@@ -93,8 +93,8 @@ def tracing_the_winds_map(ax  = None):
     ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
 
     gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
-    gl.xlabels_top = False
-    gl.ylabels_right = False
+    gl.top_labels = False
+    gl.right_labels = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
 
@@ -126,8 +126,8 @@ def map_china(ax=None, extent=None):
     ax.coastlines('10m', color='gray', alpha=0.8)
     # ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
     gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
-    gl.xlabels_top = False
-    gl.ylabels_right = False
+    gl.top_labels = False
+    gl.right_labels = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
 
@@ -140,7 +140,8 @@ def base_map_func(ax):
     # ax.add_feature(land_50m)
     ax.add_feature(cr.feature.BORDERS)
     gl = ax.gridlines(crs = ccrs.PlateCarree(), draw_labels = True, color = 'grey', alpha = 0.6, linestyle = '--')
-    gl.xlabels_top = False; gl.ylabels_right = False
+    gl.top_labels = False; gl.ylabels_right = False
 
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
+    return ax
