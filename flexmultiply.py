@@ -4,17 +4,17 @@ import os
 import glob
 import xarray as xr
 """
-AUTHOR 
+AUTHOR
 ======
     Ove Haugvaldstad
 
     ovehaugv@outlook.com
 
 """
-parser_description =(""" 
-Multiply FLEXPART emissions sensitivities with modelled dust emissions from FLEXDUST, 
+parser_description =("""
+Multiply FLEXPART emissions sensitivities with modelled dust emissions from FLEXDUST,
 and save the output to a new NETCDF file file.
-""") 
+""")
 
 defaultOutPath = './out'
 defaultLocations = 'ALL'
@@ -33,30 +33,41 @@ if __name__ == "__main__":
     parser.add_argument("--zlib", "--zl", help=helpZlib, action='store_true')
     parser.add_argument("--locations", "--locs",default=defaultLocations, help=helpLocation, nargs='+')
     parser.add_argument("--out", "--o", default=defaultOutPath, help=helpOutPath)
-
+    parser.add_argument("--nFiles", "--nF", default = 'ALL', help ='How many flexpart files to mulitply')
     args = parser.parse_args()
     path = args.fpPath
     flexdust = args.fdPath
     locations = args.locations
     outpath = args.out
     zlib = args.zlib
-
+    nFiles = args.nFiles
 
     if os.path.isdir(outpath):
         pass
     else:
         os.mkdir(outpath)
-    ncFiles = glob.glob(path + "/**/grid*.nc", recursive=True) #recursively find FLEXPART output files
-    
+
+    if nFiles == 'ALL':
+        ncFiles = glob.glob(path + "/**/grid*.nc", recursive=True) #recursively find FLEXPART output files
+    else:
+        ncFiles = glob.glob(path + "/**/grid*.nc", recursive=True)[:int(nFiles)]
+
+    ncFiles.sort()
     d = xr.open_dataset(ncFiles[0])
     relCOMS = d.RELCOM
     d.close()
+
+
     for i , com in enumerate(relCOMS):
-        loc = str(com.values)[2:].strip().split()[0]
+        loc = str(com.values)[2:].strip().split()
         if locations == 'ALL':
-            if loc or i in locations:
-                multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib)    
-        else:
+            print('ALL', i)
             multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib)
+        else:
+            for receptor in locations:
+                if receptor in loc or receptor == str(i):
+                    multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib)
+                else:
+                    continue
 
 
