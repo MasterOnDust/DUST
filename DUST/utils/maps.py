@@ -103,7 +103,7 @@ def tracing_the_winds_map(ax  = None):
 
 def map_terrain_china(ax=None, fig=None):
     stamen_terrain = cimgt.Stamen('terrain-background')
-    if fig ==None:
+    if fig ==None and ax ==None:
         fig = plt.figure(figsize=(10,8))
         ax = fig.add_subplot(1,1,1,projection=stamen_terrain.crs)
     elif ax ==None:
@@ -115,6 +115,7 @@ def map_terrain_china(ax=None, fig=None):
     ax.add_image(stamen_terrain, 8)
 
     return fig ,ax
+
 
 
 def map_china(ax=None, extent=None):
