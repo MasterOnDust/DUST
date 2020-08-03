@@ -33,18 +33,15 @@ def mpl_base_map_plot(data,
     """
     default_options = {'cmap': None, 'mark_receptor': False,
                          'colorbar': True}
-    
+
     default_options.update(kwargs)
-    fig = default_options['fig']
-    if fig == None:
-        fig = plt.figure()
-    
+
     if ax == None:
-        
+
         ax = fig.add_subplot(1,1,1)
         ax = plt.axes(projection=ccrs.PlateCarree())
         ax = base_map_func(ax)
-    else: 
+    else:
         ax = ax
     if default_options['cmap'] == None:
         cmap = _gen_flexpart_colormap()
@@ -73,20 +70,20 @@ def mpl_base_map_plot(data,
 
     if plotting_method == 'pcolormesh':
         im = ax.pcolormesh(data.lon, data.lat, data.values, transform  = ccrs.PlateCarree(),
-                norm=norm, 
+                norm=norm,
                 cmap = cmap)
     elif plotting_method =='contourf':
         im = ax.contourf(data.lon,data.lat, data.values, transform  = ccrs.PlateCarree(),
-                norm=norm, 
+                norm=norm,
                 cmap = cmap, levels=levels)
     else:
         raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
-    
 
+
+    im.cmap.set_over(color='k', alpha=0.8)
     if default_options['mark_receptor']:
         ax.scatter(data.lon0, data.lat0, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
-    if default_options['colorbar']:    
-        im.cmap.set_over(color='k', alpha=0.8)
+    if default_options['colorbar'] and fig != None:
 
         cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
         clabels = list(levels[::10])  # #clevs, by 10 steps
@@ -103,10 +100,10 @@ def mpl_base_map_plot(data,
     return fig, ax
 
 
-def make_animation(data ,map_func, 
-                        figsize = (12,10), 
-                        fps = 20, 
-                        extent =[70,120, 25, 50], 
+def make_animation(data ,map_func,
+                        figsize = (12,10),
+                        fps = 20,
+                        extent =[70,120, 25, 50],
                         intervall = 150,**kwargs):
     """
     DESCRIPTION
@@ -114,8 +111,8 @@ def make_animation(data ,map_func,
 
         Create animation of image sequence made from the a 3D data array
         data is xarray.dataarray, with one temporal dimension and two spatial dimmension
-        (lon and lat). Saves animation as an mp4 video file. 
-     
+        (lon and lat). Saves animation as an mp4 video file.
+
     """
     default_options = dict(title = 'DUST animation', comment='Movie for sequence of images'
                 )
@@ -129,13 +126,13 @@ def make_animation(data ,map_func,
     ax = fig.add_subplot(1, 1, 1)
     ax =plt.axes(projection=ccrs.PlateCarree())
     frames = [d_i for d_i in data]
-    ani = animation.FuncAnimation(fig, _animate, frames=frames, 
+    ani = animation.FuncAnimation(fig, _animate, frames=frames,
             fargs=(ax, map_func, extent), interval=intervall)
     return ani
 def _animate(d_i, ax, map_func, extent):
     ax.clear()
     map_func(ax, extent= extent)
-   
+
     date = pd.to_datetime(str(d_i.time.values))
     ax.set_title(date.strftime('%Y%m%d %H%M'))
     next_frame = mpl_base_map_plot(d_i, ax=ax,colorbar=False, mark_receptor=True)

@@ -51,9 +51,9 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     ts = d0.time.values
     ind_receptor = d0.ind_receptor
     dims = d0.dims
-    relcom = str(d0.RELCOM.values)[2:].strip()
+    relcom = str(d0.RELCOM.values)[2:].strip()[:-1].split()
     sdate = num2date(0,d0.time.units).strftime('%Y%m%d%H%M')
-
+    d0.close()
     if ind_receptor == 1:
         f_name = 'Conc'
         field_unit = 'kg/m^3'
@@ -78,7 +78,8 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
         emsField = DUST.read_flexdust_output(flexdust)['dset'].Emission  
     
     # Create netcdf outfile
-    outFileName = path + '/' + relcom.split()[0] + f_name + sdate +'.nc'
+#     print(relcom[:-1])
+    outFileName = path + '/' + '_'.join(relcom) + f_name + sdate +'.nc'
     try:
         ncfile = Dataset(outFileName, 'w', format="NETCDF4")
     except PermissionError:
@@ -152,7 +153,7 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     field.height = d0.height.values     #set the height of the lowest model output layer
     field.lon0 = d0.RELLNG1.values
     field.lat0 = d0.RELLAT1.values
-    field.name_location = relcom.split()[0]
+    field.name_location = '-'.join(relcom)
     td = pd.to_timedelta(d0.time.values, unit='s')
     
     time_steps = []
