@@ -103,7 +103,7 @@ def tracing_the_winds_map(ax  = None):
 
 def map_terrain_china(ax=None, fig=None):
     stamen_terrain = cimgt.Stamen('terrain-background')
-    if fig ==None:
+    if fig ==None and ax ==None:
         fig = plt.figure(figsize=(10,8))
         ax = fig.add_subplot(1,1,1,projection=stamen_terrain.crs)
     elif ax ==None:
@@ -116,6 +116,18 @@ def map_terrain_china(ax=None, fig=None):
 
     return fig ,ax
 
+# def _get_shapes_china():
+    
+#     boundary_10m = cfeature.NaturalEarthFeature('cultural',
+#                                         name ='admin_0_boundary_lines_land',
+#                                         scale ='10m',
+#                                         facecolor='none')
+#     prov_10 = shpreader.natural_earth(category = 'cultural',
+#                                         name ='admin_1_states_provinces',
+#                                         resolution= '10m')
+#     read_prov = shpreader.Reader(prov_10)
+
+#     prov_feature = read_prov.records()
 
 def map_china(ax=None, extent=None):
     if ax == None:
