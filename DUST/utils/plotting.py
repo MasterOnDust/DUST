@@ -24,6 +24,8 @@ def mpl_base_map_plot(data,
                     vmax = None,
                     ax = None,
                     fig = None,
+                    mark_receptor = False,
+                    colorbar =True,
                     **kwargs):
     print()
     """
@@ -34,9 +36,9 @@ def mpl_base_map_plot(data,
     USAGE:
     ======
     """
-    default_options = {'cmap': None, 'mark_receptor': False,
-                         'colorbar': True}
+    default_options = {'cmap': None}
 
+    
     default_options.update(kwargs)
 
     if ax == None:
@@ -48,8 +50,9 @@ def mpl_base_map_plot(data,
         ax = ax
     if default_options['cmap'] == None:
         cmap = _gen_flexpart_colormap()
+        default_options.pop('cmap')
     else:
-        cmap = cmap
+        cmap = default_options.pop('cmap')
 
     if vmin  ==None and vmax == None:
         dat_min = data.min()
@@ -74,19 +77,19 @@ def mpl_base_map_plot(data,
     if plotting_method == 'pcolormesh':
         im = ax.pcolormesh(data.lon, data.lat, data.values, transform  = ccrs.PlateCarree(),
                 norm=norm,
-                cmap = cmap)
+                cmap = cmap, **kwargs)
     elif plotting_method =='contourf':
         im = ax.contourf(data.lon,data.lat, data.values, transform  = ccrs.PlateCarree(),
                 norm=norm,
-                cmap = cmap, levels=levels)
+                cmap = cmap, levels=levels, **kwargs)
     else:
         raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
 
 
     im.cmap.set_over(color='k', alpha=0.8)
-    if default_options['mark_receptor']:
+    if mark_receptor:
         ax.scatter(data.lon0, data.lat0, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
-    if default_options['colorbar'] and fig != None:
+    if colorbar and fig != None:
 
         cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
         clabels = list(levels[::10])  # #clevs, by 10 steps

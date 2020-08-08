@@ -1,15 +1,22 @@
 import glob
 import xarray as xr
 import xarray
+
 import pandas as pd
+
 import DUST
+
 from dask.delayed import delayed
+
 import dask
 import numpy as np
+
 from netCDF4 import Dataset
 from netCDF4 import date2num, num2date
+
 import os
 import time
+
 from IPython import embed
 from numba import njit, prange
 
@@ -91,7 +98,7 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     ncfile.title = 'Flexpart - Flexdust SSR'
     ncfile.history = "Created " + time.ctime(time.time())
     ncfile.flexpart_v = d0.source
-    ncfile.receptor_name = relcom
+    ncfile.receptor_name =  ' '.join(relcom)
     ncfile.reference = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482'
 
 
@@ -155,28 +162,37 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     field.lat0 = d0.RELLAT1.values
     field.name_location = '-'.join(relcom)
     td = pd.to_timedelta(d0.time.values, unit='s')
-    
+    ncfile.close()
     time_steps = []
     for n, nc_file in enumerate(nc_files):
+        if n == 0:
+            ncfile = Dataset(outFileName, 'a', format="NETCDF4")
+            outfield = ncfile[f_name]
         temp_ds = xr.open_dataset(nc_file, decode_times=False)
         temp_ds = _sel_location(temp_ds, point_spec)
         s_time = pd.to_datetime(temp_ds.iedate + temp_ds.ietime)
         time_steps.append(date2num(s_time, time_var.units))
         ems_sens = temp_ds.spec001_mr
         temp_ems = emsField.sel(time=s_time + td)
+        
         #multiply emission and emission sensitivity
         temp_array = _multiply_emissions(temp_ems.values, ems_sens.values)  
-        field[n,:,:,:] = temp_array
-    time_var[:] = time_steps
-    ncfile.close()
+        ncfile['time'][:] = time_steps
+        print(outfield)
+        outfield[n,:,:,:] = temp_array
+
+        if n % 5== 0:
+            ncfile.close()
+            print(n,'saved')
+            ncfile = Dataset(outFileName, 'a', format="NETCDF4")
+            outfield = ncfile[f_name]
     return outFileName
 
-
-@njit(parallel=True)
+@njit
 def _multiply_emissions(ems, ems_sens):
     """python looping is slow..."""
     temp_array = np.zeros_like(ems_sens)
-    for i in prange(ems.shape[0]):
+    for i in range(ems.shape[0]):
         for j in range(ems.shape[1]):
             for k in range(ems.shape[2]):
                 temp_array[i,j,k] = ems[i,j,k]*ems_sens[i,j,k]
@@ -191,6 +207,53 @@ def _sel_location(ds,pointspec):
     ds = ds.isel(height=0)
     return ds
 
+@dask.delayed
+def multi_flexpart_flexdust_dask(xr_flexpart, xr_flexdust, point_spec):
+    """
+    
+    DESCRIPTION
+    ===========
+        
+        Multiply flexpart and flexdust xarray dataset in paraell using dask, and returns 
+        dask delayed object.
+
+    USAGE
+    ===== 
+
+        xr_multi = multi_flexpart_flexdust_dask(xr_flexpart, xr_flexdust, point_spec)
+
+        xr_flexpart : xarray dataset containing flexpart model output(s)
+        xr_flexdust : xarray dataset containing flexdust model output which is to be 
+                      matched and multiplied by the flexpart output 
+
+    
+    """
+
+    # Create output dataset
+    attrs = dict(title ='FLEXPART * FLEXDUST multiplied SSR',
+                history = "Created " + time.ctime(time.time()),
+                reference = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482')
+
+    
+    xr_flexpart = _sel_location(point_spec)
+    d_out = xr.Dataset(data_vars={'RELCOM' : xr_flexpart.RELCOM,
+                                'RELLAT' : xr_flexpart.RELLAT1,
+                                'RELLON' : xr_flexpart.RELLNG1,
+                                'ORO' : xr_flexpart.ORO,
+                                'RELPART' : xr.RELPART},
+                    coords={'time':xr_flexpart.time,
+                               'btime': xr_flexpart.btime,
+                               'lon' : xr_flexpart.lon,
+                               'lat' : xr_flexdust.lat
+                            }, attrs=attrs)
+    # for d_step in xr_flexpart:
+
+
+
+
+
+
+    return xr_multi
 
 if __name__=="__main__":
 

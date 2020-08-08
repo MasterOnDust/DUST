@@ -181,12 +181,26 @@ def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
 
     for f in files:
         if f.endswith('.nc'):
-            ncfile = xr.open_dataset(out_dir + f)
-            ncfile = ncfile.rename(dict(latitude = 'lat', longitude='lon'))
+            ncfile = xr.open_dataset(out_dir + f, decode_times=False)
+            ncfile = ncfile.rename(dict(latitude = 'lat', longitude='lon', time='btime'))
+            s_time = pd.to_datetime(ncfile.iedate + ncfile.ietime)
+            # ncfile = ncfile.expand_dims({'time':1})
             if ldirect < 0:
-                outs['data'] = ncfile.drop_vars(not_usefull(ncfile))
-            else:
-                outs['data'] = ncfile 
+                ncfile = ncfile.drop_vars(not_usefull(ncfile))
+            for data_var in ncfile.data_vars:
+                if 'btime' and 'pointspec' in ncfile[data_var].dims:
+                
+                    da = ncfile[data_var]
+                    da = da.assign_coords(time=s_time)
+                    # print(da.dims)
+                    da = da.expand_dims({'time': 1})
+                    # print(da.dims)
+                    ncfile[data_var] = da
+                else:
+                    continue
+
+
+            outs['data'] = ncfile 
         elif 'COMMAND.namelist' in f:
             com_dict = read_command_namelist(out_dir)
             outs['command'] = com_dict
