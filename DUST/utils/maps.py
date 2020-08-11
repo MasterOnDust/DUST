@@ -118,7 +118,7 @@ def map_terrain_china(ax=None, fig=None):
 
 
 
-def map_china(ax=None, extent=None):
+def map_china(ax=None):
     if ax == None:
         ax = plt.axes(projection = ccrs.PlateCarree())
     if extent != None:
