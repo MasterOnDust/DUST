@@ -470,8 +470,11 @@ class FLEXPART(DUSTBase):
             fig, ax = plt.subplots(1,1, subplot_kw=dict(projection=ccrs.PlateCarree()),**fig_kwargs)
         elif ax==None:
             ax = fig.add_axes(ax)
-        else:
+        elif figure==None and ax != None:
             raise(ValueError('matplotlib.axes has to have a corresponding figure'))
+        else:
+            fig=figure
+        
         if  mapfunc:
             ax = mapfunc(ax)
         else:
@@ -479,7 +482,7 @@ class FLEXPART(DUSTBase):
 
         fig, ax = mpl_base_map_plot(data, ax=ax, fig=fig,
                                     plotting_method=plotting_method,
-                                    mark_receptor = True,
+                                    mark_receptor = True, vmin=vmin, vmax=vmax
                                     )
         start_date = pd.to_datetime(_obj.iedate + _obj.ietime, yearfirst=True)
         rel_start = start_date + pd.to_timedelta(_obj.RELSTART.values)
@@ -655,18 +658,28 @@ class FLEXDUST:
         elif ax==None:
             ax = fig.add_axes(ax)
 
-        else:
+        elif fig==None and ax != None:
             raise(ValueError('matplotlib.axes has to have a corresponding figure'))
+        else:
+            pass
 
         if freq == None:
             pass
         else:
             _obj = self.resample_data(freq=freq, method='sum', dset = _obj)
 
-        if reduce == 'mean':
+        if 'time' not in _obj.dims:
+            data = _obj.Emission
+            date0 = np.datetime_as_string(_obj.time.values, unit='D')
+            date_end = np.datetime_as_string(_obj.time.values, unit='D')
+        elif reduce == 'mean':
             data = _obj.Emission.mean(dim='time', keep_attrs=True)
+            date0 = np.datetime_as_string(_obj.time.values[0], unit='D')
+            date_end = np.datetime_as_string(_obj.time.values[-1], unit='D')
         elif reduce == 'sum': 
             data = _obj.Emission.sum(dim='time', keep_attrs=True)
+            date0 = np.datetime_as_string(_obj.time.values[0], unit='D')
+            date_end = np.datetime_as_string(_obj.time.values[-1], unit='D')
         else:
             raise ValueError("`reduce` param '%s' is not a valid one." % unit)
 
@@ -678,17 +691,15 @@ class FLEXDUST:
             data = data.assign_attrs(units ='$\mathrm{kg}\; \mathrm{m}^{-2}$')
         else:
             raise ValueError("`unit` param '%s' is not a valid one." % unit)
-
-        date0 = np.datetime_as_string(_obj.time[0].values, unit='D')
-        date_end = np.datetime_as_string(_obj.time[-1].values, unit='D')
-        
         plt.title('start date: {} - end date {}'.format(date0, date_end), fontsize=12)
 
         if title == None:
             plt.suptitle('FLEXDUST estimated accumulated emissions', fontsize=18)
         else:
             plt.suptitle(title, fontsize=18)
-        ax = mapfunc(ax)
+        if mapfunc != None:
+            ax = mapfunc(ax)
+        
         fig, ax = mpl_base_map_plot(data,ax, fig,plotting_method,log=log, cmap=cmap)
         return fig, ax
 
