@@ -670,12 +670,12 @@ class FLEXDUST:
 
         if 'time' not in _obj.dims:
             data = _obj.Emission
-            date0 = np.datetime_as_string(_obj.time.values, unit='D')
-            date_end = np.datetime_as_string(_obj.time.values, unit='D')
+            date0 = pd.to_datetime(_obj.time.values).strftime('%y%m%d %H')
+            date_end = pd.to_datetime(_obj.time.values).strftime('%y%m%d %H')
         elif reduce == 'mean':
             data = _obj.Emission.mean(dim='time', keep_attrs=True)
-            date0 = np.datetime_as_string(_obj.time.values[0], unit='D')
-            date_end = np.datetime_as_string(_obj.time.values[-1], unit='D')
+            date0 = pd.to_datetime(_obj.time.values[0]).strftime('%y%m%d %H')
+            date_end = pd.to_datetime(_obj.time.values[-1]).strftime('%y%m%d %H')
         elif reduce == 'sum': 
             data = _obj.Emission.sum(dim='time', keep_attrs=True)
             date0 = np.datetime_as_string(_obj.time.values[0], unit='D')
@@ -691,16 +691,16 @@ class FLEXDUST:
             data = data.assign_attrs(units ='$\mathrm{kg}\; \mathrm{m}^{-2}$')
         else:
             raise ValueError("`unit` param '%s' is not a valid one." % unit)
-        plt.title('start date: {} - end date {}'.format(date0, date_end), fontsize=12)
+        plt.title('start time: {} - end time {}'.format(date0, date_end), fontsize=12)
 
         if title == None:
-            plt.suptitle('FLEXDUST estimated accumulated emissions', fontsize=18)
+            plt.suptitle('FLEXDUST estimated accumulated emissions',y=0.9, fontsize=18)
         else:
             plt.suptitle(title, fontsize=18)
         if mapfunc != None:
             ax = mapfunc(ax)
         
-        fig, ax = mpl_base_map_plot(data,ax, fig,plotting_method,log=log, cmap=cmap)
+        fig, ax = mpl_base_map_plot(data,ax, fig,plotting_method,log=log, cmap=cmap, vmin=vmin, vmax=vmax)
         return fig, ax
 
 
