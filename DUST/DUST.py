@@ -15,7 +15,7 @@ import os
 import glob
 
 from DUST.utils.read_output import *
-from DUST.utils.plotting import mpl_base_map_plot
+from DUST.utils.plotting import mpl_base_map_plot, mpl_base_map_plot_xr
 from DUST.utils.maps import base_map_func
 from DUST.utils.utils import _gen_log_clevs, _gen_flexpart_colormap, _fix_time_flexdust
 from DUST.utils.multiply_emsfield import multi_flexpart_flexdust
@@ -719,7 +719,19 @@ class FLEXDUST:
 class PROCESS_SRR:
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
-    
+        varNames = ['WetDep', 'DryDep', 'Conc']
+        if 'WetDep' in self._obj.data_vars:
+            var = 'WetDep'
+        elif 'DryDep' in self._obj.data_vars:
+            var = 'DryDep'
+        elif 'Conc' in self._obj.data_varss:
+            var = 'Conc'
+        else:
+            raise(KeyError('''Dataset does not contain flexpart SRR values {}, 
+                                does not have the correct dimensions'''.format(self._obj.dims)))
+        self._obj = self._obj.assign_attrs(varName=var)
+        self.var = var
+
     def make_time_seires(self,timeRange=None, btimeRange=None):
         _obj = self._obj
         if timeRange !=None:
@@ -730,23 +742,14 @@ class PROCESS_SRR:
         b_end = _obj.btime[-1].values
         _obj = _obj.sum(dim='btime', keep_attrs=True)
         varNames = ['WetDep', 'DryDep', 'Conc']
-        if 'WetDep' in _obj.data_vars:
-            var = 'WetDep'
-        elif 'DryDep' in _obj.data_vars:
-            var = 'DryDep'
-        elif 'Conc' in _obj.data_varss:
-            var = 'Conc'
-        else:
-            raise(KeyError('''Dataset does not contain flexpart SRR values {}, 
-                                does not have the correct dimensions'''.format(_obj.dims)))
-                    
-        data = _obj[var]
+
+        data = _obj[self.var]
         data = data.sum(dim=['lat','lon'], keep_attrs=True)
         _obj = _obj.assign({var : data})
         _obj = _obj.drop_dims(['lat','lon'])
         s_time = pd.to_datetime(_obj.time[0].values).strftime('%Y%m%d %H:%M')
         e_time = pd.to_datetime(_obj.time[-1].values).strftime('%Y%m%d %H:%M')
-        _obj = _obj.assign_attrs({'start date': s_time, 'end date' : e_time,
+        _obj = _obj.assign_attrs({'start-date': s_time, 'end-date' : e_time,
                                  'bstart': '{} s'.format(b0), 'bstop': '{} s'.format(b_end)})
         
 
@@ -755,13 +758,7 @@ class PROCESS_SRR:
     def plot_time_series(self, timeRange=None, btimeRange=None, fig = None,
                         ax=None,minticks=5, maxticks=14, fig_kwargs = {}, **plot_kwargs):
         _obj = self.make_time_seires(timeRange, btimeRange)
-        varNames = ['WetDep', 'DryDep', 'Conc']
-        if 'WetDep' in _obj.data_vars:
-            var = 'WetDep'
-        elif 'DryDep' in _obj.data_vars:
-            var = 'DryDep'
-        elif 'Conc' in _obj.data_varss:
-            var = 'Conc'
+
         
         if fig == None and ax==None:
             fig, ax = plt.subplots(1,1,**fig_kwargs)
@@ -770,7 +767,7 @@ class PROCESS_SRR:
         else:
             raise(ValueError('matplotlib.axes has to have a corresponding figure'))
 
-        ax.add_line(_obj[var].plot(label = _obj.receptor_name, **plot_kwargs)[0])
+        ax.add_line(_obj[self.var].plot(label = _obj.receptor_name, **plot_kwargs)[0])
 
         
         locator = mdates.AutoDateLocator(minticks=minticks, maxticks=maxticks)
@@ -782,3 +779,47 @@ class PROCESS_SRR:
         ax.grid(linestyle='-')
 
         return ax  
+    
+    def make_data_container(self, timeRange=None, btimeRange=None, reduce = 'mean'):
+        _obj = self._obj
+
+        if timeRange !=None:
+            _obj = _obj.sel(time=timeRange)
+        if btimeRange != None: 
+            _obj= _obj.sel(btime = btimeRange)
+        _obj = _obj.sum(dim='btime', keep_attrs=True)
+        s_time = pd.to_datetime(_obj.time[0].values).strftime('%Y%m%d %H:%M')
+        e_time = pd.to_datetime(_obj.time[-1].values).strftime('%Y%m%d %H:%M')
+        if reduce =='mean':
+            _obj = _obj.mean(dim='time', keep_attrs=True)
+            _obj = _obj.assign_attrs(info='Mean {}'.format(self.var))
+        elif reduce == 'cumulative': 
+            _obj = _obj.sum(dim='time', keep_attrs=True)
+            _obj = _obj.assign_attrs(info='cumulative {}'.format(self.var))
+        else:
+            raise(ValueError('''reduce = {} is not a valid option, 
+                                shoud be either mean or cumulative'''.format(reduce)))
+        _obj = _obj.assign_attrs({'start-date': s_time, 'end-date' : e_time})
+        return _obj
+        
+
+    def plot_source_contribution_map(self, timeRange=None, 
+                                            btimeRange= None, 
+                                            reduce='mean', 
+                                            vmin = None,
+                                            vmax = None,
+                                            fig=None, 
+                                            ax = None,
+                                            **fig_kwargs):
+        _obj = self.make_data_container(timeRange, btimeRange, reduce)
+        if fig == None and ax==None:
+            fig, ax = plt.subplots(1,1,subplot_kw={'projection':ccrs.PlateCarree()} ,**fig_kwargs)
+        elif ax !=None and fig == None:
+            raise(ValueError('matplotlib.axes has to have a corresponding figure'))
+            
+        elif ax==None and fig != None:
+            ax = fig.add_axes(ax)
+        else:
+            pass
+        
+        ax = mpl_base_map_plot_xr(_obj,ax,vmin=vmin,vmax=vmax, mark_receptor=True)

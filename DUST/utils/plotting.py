@@ -95,6 +95,70 @@ def mpl_base_map_plot(data, ax, fig,
 
     return fig, ax
 
+def mpl_base_map_plot_xr(dataset, ax,
+                    plotting_method = 'pcolormesh',
+                    log = True,
+                    vmin = None,
+                    vmax = None,
+                    mark_receptor = False,
+                    colorbar =True,
+                    **kwargs):
+    print()
+    """
+    DESCRIPTION
+    ===========
+        Backbone of DUST ploting functionally, should be as general as possible
+        Data should be a 2D xarray.dataarray
+    USAGE:
+    ======
+    """
+    default_options = {'cmap': None}
+
+    default_options.update(kwargs)
+
+    if default_options['cmap'] == None:
+        cmap = _gen_flexpart_colormap()
+        default_options.pop('cmap')
+    else:
+        cmap = default_options.pop('cmap')
+
+    if vmin  ==None and vmax == None:
+        dat_min = dataset[dataset.varName].min()
+        dat_max = dataset[dataset.varName].max()
+    elif vmin != None and vmax == None:
+        dat_min = vmin
+        dat_max = dataset[dataset.varName].max()
+    elif vmin == None and vmax != None:
+        dat_min = dataset[dataset.varName].min()
+        dat_max = vmax
+    else:
+        dat_max = vmax
+        dat_min = vmin
+
+    if log:
+        levels = _gen_log_clevs(dat_min, dat_max)
+        norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
+    else:
+        levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
+        norm = None
+
+    if plotting_method == 'pcolormesh':
+         dataset[dataset.varName].plot.pcolormesh(ax=ax,
+                norm=norm,
+                cmap = cmap, add_colorbar=colorbar, levels=levels,extend='max',**default_options)
+    elif plotting_method =='contourf':
+        ax.add_artist(dataset[dataset.varName].plot.contourf(ax=ax, transform  = ccrs.PlateCarree(),
+                norm=norm,
+                cmap = cmap, levels=levels, add_colorbar=colorbar,extend='max',**default_options))
+    else:
+        raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
+
+
+    if mark_receptor:
+        ax.scatter(dataset.RELLON, dataset.RELLAT, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
+
+    return ax
+
 
 def make_animation(data ,map_func, title,
                         figsize=(16,8),
