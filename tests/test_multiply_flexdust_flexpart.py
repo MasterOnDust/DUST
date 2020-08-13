@@ -3,8 +3,10 @@ from DUST import read_flexdust_output, read_flexpart_output, read_multiple_flexp
 import xarray as xr
 import pytest
 from DUST.utils.multiply_emsfield import multi_flexpart_flexdust
+import os
 
 def test_multiply_emsfield():
+    
     flexdust = xr.open_dataset('test_files/FLEXDUST_emission_4th-11th_may_2019.nc')
     ref_emsens = read_flexpart_output('test_files/flexpart/20190510_00/output/grid_drydep_20190510000000.nc')
 

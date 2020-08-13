@@ -293,7 +293,6 @@ class DUSTBase(object):
     def __repr__(self):
         return self._obj.__repr__()
 
-
 @xr.register_dataset_accessor('fp')
 class FLEXPART(DUSTBase):
     def __init__(self, xarray_obj):
@@ -715,3 +714,71 @@ class FLEXDUST:
             _obj = _obj.resample(time=freq).sum()
         else:
             raise ValueError("`method` param '%s' is not a valid one." % method)
+
+@xr.register_dataset_accessor('ssr')
+class PROCESS_SRR:
+    def __init__(self, xarray_obj):
+        self._obj = xarray_obj
+    
+    def make_time_seires(self,timeRange=None, btimeRange=None):
+        _obj = self._obj
+        if timeRange !=None:
+            _obj = _obj.sel(time=timeRange)
+        if btimeRange != None: 
+            _obj= _obj.sel(btime = btimeRange)
+        b0 = _obj.btime[0].values
+        b_end = _obj.btime[-1].values
+        _obj = _obj.sum(dim='btime', keep_attrs=True)
+        varNames = ['WetDep', 'DryDep', 'Conc']
+        if 'WetDep' in _obj.data_vars:
+            var = 'WetDep'
+        elif 'DryDep' in _obj.data_vars:
+            var = 'DryDep'
+        elif 'Conc' in _obj.data_varss:
+            var = 'Conc'
+        else:
+            raise(KeyError('''Dataset does not contain flexpart SRR values {}, 
+                                does not have the correct dimensions'''.format(_obj.dims)))
+                    
+        data = _obj[var]
+        data = data.sum(dim=['lat','lon'], keep_attrs=True)
+        _obj = _obj.assign({var : data})
+        _obj = _obj.drop_dims(['lat','lon'])
+        s_time = pd.to_datetime(_obj.time[0].values).strftime('%Y%m%d %H:%M')
+        e_time = pd.to_datetime(_obj.time[-1].values).strftime('%Y%m%d %H:%M')
+        _obj = _obj.assign_attrs({'start date': s_time, 'end date' : e_time,
+                                 'bstart': '{} s'.format(b0), 'bstop': '{} s'.format(b_end)})
+        
+
+        return _obj
+
+    def plot_time_series(self, timeRange=None, btimeRange=None, fig = None,
+                        ax=None,minticks=5, maxticks=14, fig_kwargs = {}, **plot_kwargs):
+        _obj = self.make_time_seires(timeRange, btimeRange)
+        varNames = ['WetDep', 'DryDep', 'Conc']
+        if 'WetDep' in _obj.data_vars:
+            var = 'WetDep'
+        elif 'DryDep' in _obj.data_vars:
+            var = 'DryDep'
+        elif 'Conc' in _obj.data_varss:
+            var = 'Conc'
+        
+        if fig == None and ax==None:
+            fig, ax = plt.subplots(1,1,**fig_kwargs)
+        elif ax==None:
+            ax = fig.add_axes(ax)
+        else:
+            raise(ValueError('matplotlib.axes has to have a corresponding figure'))
+
+        ax.add_line(_obj[var].plot(label = _obj.receptor_name, **plot_kwargs)[0])
+
+        
+        locator = mdates.AutoDateLocator(minticks=minticks, maxticks=maxticks)
+
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+        ax.grid(linestyle='-')
+
+        return ax  
