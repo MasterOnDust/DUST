@@ -17,13 +17,11 @@ import numpy as np
 
 from functools import partial
 from collections import namedtuple
-def mpl_base_map_plot(data,
+def mpl_base_map_plot(data, ax, fig,
                     plotting_method = 'pcolormesh',
                     log = True,
                     vmin = None,
                     vmax = None,
-                    ax = None,
-                    fig = None,
                     mark_receptor = False,
                     colorbar =True,
                     **kwargs):
@@ -38,16 +36,8 @@ def mpl_base_map_plot(data,
     """
     default_options = {'cmap': None}
 
-    
     default_options.update(kwargs)
 
-    if ax == None:
-
-        ax = fig.add_subplot(1,1,1)
-        ax = plt.axes(projection=ccrs.PlateCarree())
-        ax = base_map_func(ax)
-    else:
-        ax = ax
     if default_options['cmap'] == None:
         cmap = _gen_flexpart_colormap()
         default_options.pop('cmap')
@@ -77,11 +67,11 @@ def mpl_base_map_plot(data,
     if plotting_method == 'pcolormesh':
         im = ax.pcolormesh(data.lon, data.lat, data.values, transform  = ccrs.PlateCarree(),
                 norm=norm,
-                cmap = cmap, **kwargs)
+                cmap = cmap, **default_options)
     elif plotting_method =='contourf':
         im = ax.contourf(data.lon,data.lat, data.values, transform  = ccrs.PlateCarree(),
                 norm=norm,
-                cmap = cmap, levels=levels, **kwargs)
+                cmap = cmap, levels=levels, **default_options)
     else:
         raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
 

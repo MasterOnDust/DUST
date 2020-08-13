@@ -102,6 +102,7 @@ def _fix_time_flexdust(ncfile):
     time_index = pd.date_range(start='{}'.format(sTime.strftime('%Y%m%d %H:%M:%S').values[
             0]), periods=nTimeSteps, freq='{}h'.format(time_freq))
     dset['time'] = time_index
+    dset = dset.drop_dims('time_s')
     return dset
 
 def _gen_log_clevs(dat_min, dat_max):

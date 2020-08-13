@@ -11,30 +11,27 @@ import matplotlib.colors as mcolors
 
 from shapely.geometry import LineString, MultiLineString
 
+from IPython import embed
+
+def tracing_the_winds_map(ax):
+    """
+    DESCRIPTION:
+    ============
+
+        Generates a cartopy map of the Chinese Loess Plateu and the surrounding
+        desert marked in, mountain ranges marked.
+
+    USAGE:
+    ======
+        ax : cartopy.GeoAxes
+
+        ax = tracing_the_winds_map(ax)
+
+            returns: cartopy.geoaxes
 
 
-"""
-DESCRIPTION:
-============
+    """
 
-    Generates a cartopy map of the Chinese Loess Plateu and the surrounding
-    desert marked in, mountain ranges marked.
-
-USAGE:
-======
-    fig, ax = tracing_the_winds_map()
-
-        returns:
-             matplotlib.figure
-             cartopy.geoaxes
-
-
-"""
-def tracing_the_winds_map(ax  = None):
-    if ax ==None:
-        ax = plt.axes(projection=ccrs.PlateCarree())
-    else:
-        ax = ax
     shpfilename = shpreader.natural_earth(resolution='10m',
                                         category='physical',
                                         name='geography_regions_polys')
@@ -85,9 +82,7 @@ def tracing_the_winds_map(ax  = None):
     for prov in prov_feature:
         if prov.attributes['admin'] == 'China' and prov.attributes['type_en'] == 'Province':
 
-
-
-            ax.add_geometries(prov.geometry,crs =ccrs.PlateCarree(), facecolor='none', edgecolor='gray',
+            ax.add_geometries([prov.geometry],crs =ccrs.PlateCarree(), facecolor='none', edgecolor='gray',
                             alpha=.8, linestyle=':')
 
 
@@ -100,30 +95,54 @@ def tracing_the_winds_map(ax  = None):
     gl.right_labels = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
+    return ax
 
-def map_terrain_china(ax=None, fig=None):
+def map_terrain_china(ax):
+    """
+    DESCRIPTION
+    ===========
+    
+        Draws a Stamen terrain map. Takes a cartopy.geoaxes as argument
+
+    USAGE
+    =====
+
+        ax = map_terrain_china(ax)
+
+        ax: cartopy.GeoAxes
+
+        retrun ax cartopy.GeoAxes
+
+    """
     stamen_terrain = cimgt.Stamen('terrain-background')
-    if fig ==None and ax ==None:
-        fig = plt.figure(figsize=(10,8))
-        ax = fig.add_subplot(1,1,1,projection=stamen_terrain.crs)
-    elif ax ==None:
-        ax = fig.add_subplot(1,1,1,projection=stamen_terrain.crs)
-    else:
-        pass
+
 
     ax = map_china(ax)
-    ax.add_image(stamen_terrain, 8)
+    ax.add_image(stamen_terrain, 7)
+    ax.add_feature(cr.feature.RIVERS)
+    ax.add_feature(cr.feature.LAKES)
+    return ax
 
-    return fig ,ax
 
 
+def map_china(ax, lakes_and_rivers=False):
+    """
+    DESCRIPTION
+    ===========
+    
+        Draws a maps of china including administrative districts. 
+        Takes a cartopy.geoaxes as argument
 
-def map_china(ax=None):
-    if ax == None:
-        ax = plt.axes(projection = ccrs.PlateCarree())
-    if extent != None:
-        ax.set_extent(extent, crs= ccrs.PlateCarree())
+    USAGE
+    =====
 
+        ax = map_terrain_china(ax)
+
+        ax: cartopy.GeoAxes
+
+        retrun ax cartopy.GeoAxes
+
+    """
     boundary_10m = cfeature.NaturalEarthFeature('cultural',
                                             name ='admin_0_boundary_lines_land',
                                             scale ='10m',
@@ -148,14 +167,29 @@ def map_china(ax=None):
                    yformatter=LATITUDE_FORMATTER)
     gl.top_labels = False
     gl.right_labels = False
-
+    if lakes_and_rivers:
+        ax.add_feature(cr.feature.RIVERS)
+        ax.add_feature(cr.feature.LAKES)
     return ax
 
 
 def base_map_func(ax):
+    """
+    DESCRIPTION
+    ===========
+    
+        Draw a basic map with coastlines and contry borders
+        Takes cartop.GeoAxes instance as argument
+    
+    USAGE
+    =====
 
+        ax = base_map_func(ax)
+
+        ax : cartopy.GeoAxes
+    """
+    
     ax.coastlines()
-    # ax.add_feature(land_50m)
     ax.add_feature(cr.feature.BORDERS)
     gl = ax.gridlines(crs = ccrs.PlateCarree(), draw_labels = True, color = 'grey', alpha = 0.6, linestyle = '--')
     gl.top_labels = False

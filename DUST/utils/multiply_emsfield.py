@@ -40,6 +40,8 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
 
         multi_flexpart_flexdust(path, nc_files, flexdust, point_spec)
 
+        return: path to newly created netcdf4 file
+
     AUTHOR:
     =======
         Ove Haugvaldstad
