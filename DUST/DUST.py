@@ -37,22 +37,22 @@ def multiply_flexpart_flexdust(flexdust, outpath='./out', locations=None, ncFile
     DESCRIPTION
     ===========
 
-        Goes through all subdirectories in path looking for flexpart netcdf files with .nc 
-        file extension. Then multiply corresponding emission sensitivities with emission field 
+        Goes through all subdirectories in path looking for flexpart netcdf files with .nc
+        file extension. Then multiply corresponding emission sensitivities with emission field
 
     USAGE:
     ======
 
         flexdust           : path to flexdust output folder/output or xarray.Dataset containing flexdust output
         outpath (optional) : directory for where the combined data are going to be stored
-        locations(optional): receptor location in flexpart either interger or string containing the name, 
+        locations(optional): receptor location in flexpart either interger or string containing the name,
                              correspoding to RELCOM in FLEXPART release file. If not provided all locations is used.
-        ncFiles (optional) : List of paths to flexpart output files 
-        path (optional)    : path to top directory of flexpart output which is search recursively looking 
+        ncFiles (optional) : List of paths to flexpart output files
+        path (optional)    : path to top directory of flexpart output which is search recursively looking
                              for FLEXPART netcdf files, either ncFiles or path has to be provided!
 
-        returns: python list containing paths to multiplied flexpart / flexdust output   
-    
+        returns: python list containing paths to multiplied flexpart / flexdust output
+
     """
 
     if ncFiles:
@@ -74,7 +74,7 @@ def multiply_flexpart_flexdust(flexdust, outpath='./out', locations=None, ncFile
         loc = str(com.values)[2:].strip().split()[0]
         if locations:
             if loc or i in locations:
-                files.append(multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib), )    
+                files.append(multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib), )
         else:
             files.append(multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib))
 
@@ -108,24 +108,24 @@ def read_multiple_flexpart_output(path, ldirect=-1):
 
 
         return ds
-    
+
 
     nc_files = glob.glob(path + "/**/grid*.nc", recursive=True)
-    dsets = xr.open_mfdataset(nc_files, preprocess=(pre), decode_times=False, 
+    dsets = xr.open_mfdataset(nc_files, preprocess=(pre), decode_times=False,
                             combine='nested', concat_dim='time', parallel=True,data_vars='minimal')
-    
+
     if ldirect < 0:
         dsets = dsets.drop(not_usefull(dsets))
 
     dsets = dsets.assign(dict(RELCOM = dsets.RELCOM[0],
-                         RELLNG1 = dsets.RELLNG1[0], RELLNG2=dsets.RELLNG2[0], 
+                         RELLNG1 = dsets.RELLNG1[0], RELLNG2=dsets.RELLNG2[0],
                           RELLAT1 = dsets.RELLAT1[0], RELLAT2=dsets.RELLAT2[0],RELPART = dsets.RELPART.sum(dim='time'),
                          RELSTART = dsets.RELSTART[0], RELEND = dsets.RELEND[-1], LAGE = dsets.LAGE[0], RELZZ1 = dsets.RELZZ1[0],
                          RELZZ2 = dsets.RELZZ2[0], RELKINDZ=dsets.RELKINDZ[0]))
 
     edate = pd.to_datetime(dsets.time[-1].values)
 
-    dsets = dsets.assign_attrs(dict(iedate = edate.strftime('%Y%m%d'), 
+    dsets = dsets.assign_attrs(dict(iedate = edate.strftime('%Y%m%d'),
                                 ietime = edate.strftime('%H%M%S')))
 
     return dsets
@@ -136,22 +136,22 @@ def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
     DESCRIPTION
     ===========
 
-        Takes in the path to a flexpart output directory or a FLEXPART output file. 
-        If a path to a output directory is provided then it will read all the FLEXPART 
-        output files present in that directory and return it as a python directory. If a full path 
-        to a FLEXPART output file is provided then it will only read that specific output file.   
+        Takes in the path to a flexpart output directory or a FLEXPART output file.
+        If a path to a output directory is provided then it will read all the FLEXPART
+        output files present in that directory and return it as a python directory. If a full path
+        to a FLEXPART output file is provided then it will only read that specific output file.
 
 
     USAGE
     =====
-    
+
         flexpart_output : str containing path to FLEXPART output directory or a FLEXPART
-                          output file. 
+                          output file.
 
         fp = read_flexpart(flexpart_output)
 
         return : python directory / pandas.dataframe / xarray.dataset
-    
+
     """
     def not_usefull(ds):
         essentials = ['RELCOM','RELLNG1','RELLNG2','RELLAT1','RELLAT2','RELZZ1','RELZZ2',
@@ -163,7 +163,7 @@ def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
         files = [path[-1]]
         out_dir = str()
         for s in path[:-1]:
-            out_dir += s + '/'  
+            out_dir += s + '/'
     elif os.path.isdirectory(flexpart_output):
         files = os.listdir(flexpart_output)
         if flexpart_output.endswith('/'):
@@ -173,7 +173,7 @@ def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
 
     else:
         raise(ValueError('flexpart_output has to be a string not {}'.format(type(flexpart_output))))
-    
+
 
     for f in files:
         if f.endswith('.nc'):
@@ -185,7 +185,7 @@ def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
                 ncfile = ncfile.drop_vars(not_usefull(ncfile))
             for data_var in ncfile.data_vars:
                 if 'btime' and 'pointspec' in ncfile[data_var].dims:
-                
+
                     da = ncfile[data_var]
                     da = da.assign_coords(time=s_time)
                     # print(da.dims)
@@ -196,7 +196,7 @@ def read_flexpart_output(flexpart_output,ldirect = -1 ,nclusters=5):
                     continue
 
 
-            outs['data'] = ncfile 
+            outs['data'] = ncfile
         elif 'COMMAND.namelist' in f:
             com_dict = read_command_namelist(out_dir)
             outs['command'] = com_dict
@@ -276,7 +276,7 @@ class DUSTBase(object):
             ds_sum = ds_sum.assign(RELCOM = self._RELCOM)
         else:
             ds_sum = self._obj.sum(dim, keep_attrs=keep_attrs, **kwargs)
-        
+
         return ds_sum
 
 
@@ -287,9 +287,9 @@ class DUSTBase(object):
             ds_mean = ds_mean.assign(RELCOM = self._RELCOM)
         else:
 
-            ds_mean = self._obj.mean(dim, keep_attrs=keep_attrs, **kwargs)    
+            ds_mean = self._obj.mean(dim, keep_attrs=keep_attrs, **kwargs)
         return ds_mean
-    
+
     def __repr__(self):
         return self._obj.__repr__()
 
@@ -309,7 +309,7 @@ class FLEXPART(DUSTBase):
 
         USAGE:
         =====
-            dset_point = dset.fp.select_receptor_point(pointspec): 
+            dset_point = dset.fp.select_receptor_point(pointspec):
 
         """
 
@@ -325,16 +325,16 @@ class FLEXPART(DUSTBase):
     def _select_receptor_point(self,dataset,pointspec, nAgeclass =False):
 
         return dataset.sel(pointspec=pointspec,  numspec=pointspec, numpoint=pointspec)
-    
-    
+
+
     def plot_total_column(self,**kwargs):
         """
         DESCRIPTION
         ===========
-            
-            Integrates the height dimmension over all model output layers 
-            and plots the emission sensitivity 
-        
+
+            Integrates the height dimmension over all model output layers
+            and plots the emission sensitivity
+
         USAGE
         =====
             fig,ax = dset.fp.plot_emission_sensitivity()
@@ -349,20 +349,20 @@ class FLEXPART(DUSTBase):
             _obj = _obj
         else:
             _obj = self._obj
-        
+
 
         data = data.assign_attrs(lon0 =_obj.RELLNG1.values,
                         lat0 = _obj.RELLAT1.values,
                         relcom = _obj.RELCOM.values )
         return data
-        
+
     def make_data_container(self,height=None,
                             btimeRange=None, timeRange=None, data_var='spec001_mr', ds=None):
         """
         DESCRIPTION
         ===========
-            Constructs the xarray.DataArray which is expected by the mpl_base_map_plot 
-            routine. 
+            Constructs the xarray.DataArray which is expected by the mpl_base_map_plot
+            routine.
 
         """
         if ds != None:
@@ -386,7 +386,7 @@ class FLEXPART(DUSTBase):
                     data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
                 except KeyError:
                     print("Invalid time range provided check `timeRange`")
-        
+
 
         if 'time' in data.dims:
             if timeRange == None:
@@ -396,7 +396,7 @@ class FLEXPART(DUSTBase):
                     data = data.sel(time=timeRange).mean(dim='time', keep_attrs=True)
                 except KeyError:
                     print("Invalid time range provided check `btimeRange`")
-        
+
 
         data = self._set_da_attrs(data, ds)
         return data
@@ -413,15 +413,15 @@ class FLEXPART(DUSTBase):
                                     ax =None,
                                     title=None,
                                     mapfunc = None,
-                                    extent = None, 
+                                    extent = None,
                                     btimeRange = None,
                                     timeRange = None,
                                     **fig_kwargs):
         """
-        Description 
+        Description
         ===========
-            
-            Main function for plotting flexpart emission sensitivity 
+
+            Main function for plotting flexpart emission sensitivity
 
         USAGE
         =====
@@ -442,22 +442,22 @@ class FLEXPART(DUSTBase):
                 mapfunc         : function for making cartopy map, mapfunc should only take,
                                   cartopy.GeoAxes as argument and return cartopy.GeoAxes
                 title           : plot title, if None default title is created.
-                extent          : extent of the output map,if not already set, default 
+                extent          : extent of the output map,if not already set, default
                                   [70,120, 25, 50]
-                btimeRange      : How far back in time do you want to at emission sensitivity, 
+                btimeRange      : How far back in time do you want to at emission sensitivity,
                                   using slice('startdate', 'enddate')
                 timeRange       : Forward time slice, only applicable when looking at many flexpart
-                                  output files 
-                **fig_kwargs    : figure kwargs when creating matplotlib.figure object 
+                                  output files
+                **fig_kwargs    : figure kwargs when creating matplotlib.figure object
 
         """
-        
+
         if 'pointspec' not in self._obj.dims:
             _obj = self._obj
         elif point in self._obj.pointspec:
             # print(pointspec)
             _obj = self.select_receptor_point(point, inplace=False)
-            
+
         else:
             raise(ValueError('Pointspec not selected use select_receptor first or set point != None'))
         data = self.make_data_container(height, btimeRange, timeRange, data_var, ds =_obj)
@@ -473,7 +473,7 @@ class FLEXPART(DUSTBase):
             raise(ValueError('matplotlib.axes has to have a corresponding figure'))
         else:
             fig=figure
-        
+
         if  mapfunc:
             ax = mapfunc(ax)
         else:
@@ -487,27 +487,27 @@ class FLEXPART(DUSTBase):
         rel_start = start_date + pd.to_timedelta(_obj.RELSTART.values)
         rel_end = start_date + pd.to_timedelta(_obj.RELEND.values)
         rel_part = _obj.RELPART.values
-    
+
         info_str = ('FLEXPART {}\n'.format(_obj.source[:25].strip()) +
                     'Release start : {}\n'.format(rel_start.strftime('%d/%m/%y %H:%M')) +
                     'Release end : {}\n'.format(rel_end.strftime('%d/%m/%y %H:%M')) +
-                    'Particles released : {:.2E}'.format(rel_part) 
+                    'Particles released : {:.2E}'.format(rel_part)
                     )
 
         anc_text = AnchoredText(info_str, loc=info_loc ,bbox_transform=ax.transAxes,prop=dict(size=8))
         ax.add_artist(anc_text)
-        
+
         if extent == None and ax.get_extent() == None:
             ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
         elif extent ==None:
             pass
         else:
             ax.set_extent(extent)
- 
+
         if title != None:
             ax.set_title(title)
         else:
-            if _obj.ldirect == -1: 
+            if _obj.ldirect == -1:
                 ax.set_title('FLEXPART backward trajectory simulation starting at {} UTC'.format(start_date.strftime('%b %d %Y %H%M'))
                 ,fontsize=16)
             else:
@@ -520,10 +520,10 @@ class FLEXPART(DUSTBase):
 class FLEXDUST:
     def __init__(self, xarray_dset):
         self._obj = xarray_dset
-    
+
     def __repr__(self):
         return self._obj.__repr__()
-        
+
 
     def _integrate_area(self, unit, dset=None, inplace=False):
         if dset != None:
@@ -563,12 +563,12 @@ class FLEXDUST:
         df = self.emission_time_series_to_df()
 
         if filename == None:
-            filename = 'Emissions' + df.index[0].strftime(format='%b_%d_%Y') + df.index[-1].strftime(format='%b_%d_%Y') + '.csv' 
+            filename = 'Emissions' + df.index[0].strftime(format='%b_%d_%Y') + df.index[-1].strftime(format='%b_%d_%Y') + '.csv'
         else:
             filename =filename
         df.to_csv(filename)
 
-    def plot_emission_time_series(self, time_slice = None, 
+    def plot_emission_time_series(self, time_slice = None,
                                         x_date_format = None,
                                         title=None,
                                         unit='kg',
@@ -611,7 +611,7 @@ class FLEXDUST:
             plt.suptitle('Total dust emissions {} - {}'.format(date0,date_end), fontsize = 18)
         else:
             plt.suptitle(title + ' {} - {}'.format(date0,date_end), fontsize = 18)
-        
+
         if subtitle == 'default':
             lon0 = _obj.lon.min().values; lon1 = _obj.lon.max().values
             lat0 = _obj.lat.min().values; lat1 = _obj.lat.max().values
@@ -628,10 +628,10 @@ class FLEXDUST:
         ax.xaxis.set_major_locator(locator)
         ax.xaxis.set_major_formatter(formatter)
 
-        ax.grid(linestyle='-')  
+        ax.grid(linestyle='-')
 
 
-    def plot_emission_map(self, ax=None, 
+    def plot_emission_map(self, ax=None,
                             plotting_method='pcolormesh',
                             reduce='sum',
                             freq=None,
@@ -645,7 +645,7 @@ class FLEXDUST:
                             mapfunc = None,
                             unit='kg',**fig_kwargs):
 
-        
+
         if time_slice != None:
             _obj = self._obj.sel(time=time_slice)
         else:
@@ -653,7 +653,7 @@ class FLEXDUST:
 
         if fig == None and ax==None:
             fig, ax = plt.subplots(1,1, subplot_kw=dict(projection=ccrs.PlateCarree()),**fig_kwargs)
-        
+
         elif ax==None:
             ax = fig.add_axes(ax)
 
@@ -675,7 +675,7 @@ class FLEXDUST:
             data = _obj.Emission.mean(dim='time', keep_attrs=True)
             date0 = pd.to_datetime(_obj.time.values[0]).strftime('%y%m%d %H')
             date_end = pd.to_datetime(_obj.time.values[-1]).strftime('%y%m%d %H')
-        elif reduce == 'sum': 
+        elif reduce == 'sum':
             data = _obj.Emission.sum(dim='time', keep_attrs=True)
             date0 = np.datetime_as_string(_obj.time.values[0], unit='D')
             date_end = np.datetime_as_string(_obj.time.values[-1], unit='D')
@@ -698,7 +698,7 @@ class FLEXDUST:
             plt.suptitle(title, fontsize=18)
         if mapfunc != None:
             ax = mapfunc(ax)
-        
+
         fig, ax = mpl_base_map_plot(data,ax, fig,plotting_method,log=log, cmap=cmap, vmin=vmin, vmax=vmax)
         return fig, ax
 
@@ -715,7 +715,7 @@ class FLEXDUST:
         else:
             raise ValueError("`method` param '%s' is not a valid one." % method)
 
-@xr.register_dataset_accessor('ssr')
+@xr.register_dataset_accessor('srr')
 class PROCESS_SRR:
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
@@ -724,10 +724,10 @@ class PROCESS_SRR:
             var = 'WetDep'
         elif 'DryDep' in self._obj.data_vars:
             var = 'DryDep'
-        elif 'Conc' in self._obj.data_varss:
+        elif 'Conc' in self._obj.data_vars:
             var = 'Conc'
         else:
-            raise(KeyError('''Dataset does not contain flexpart SRR values {}, 
+            raise(KeyError('''Dataset does not contain flexpart SRR values {},
                                 does not have the correct dimensions'''.format(self._obj.dims)))
         self._obj = self._obj.assign_attrs(varName=var)
         self.var = var
@@ -736,40 +736,51 @@ class PROCESS_SRR:
         _obj = self._obj
         if timeRange !=None:
             _obj = _obj.sel(time=timeRange)
-        if btimeRange != None: 
+        if btimeRange != None:
             _obj= _obj.sel(btime = btimeRange)
         b0 = _obj.btime[0].values
         b_end = _obj.btime[-1].values
+
         _obj = _obj.sum(dim='btime', keep_attrs=True)
-        varNames = ['WetDep', 'DryDep', 'Conc']
 
         data = _obj[self.var]
+
         data = data.sum(dim=['lat','lon'], keep_attrs=True)
-        _obj = _obj.assign({var : data})
         _obj = _obj.drop_dims(['lat','lon'])
+
+        _obj = _obj.assign({self.var : data})
         s_time = pd.to_datetime(_obj.time[0].values).strftime('%Y%m%d %H:%M')
         e_time = pd.to_datetime(_obj.time[-1].values).strftime('%Y%m%d %H:%M')
         _obj = _obj.assign_attrs({'start-date': s_time, 'end-date' : e_time,
                                  'bstart': '{} s'.format(b0), 'bstop': '{} s'.format(b_end)})
-        
+
 
         return _obj
 
     def plot_time_series(self, timeRange=None, btimeRange=None, fig = None,
                         ax=None,minticks=5, maxticks=14, fig_kwargs = {}, **plot_kwargs):
-        _obj = self.make_time_seires(timeRange, btimeRange)
+        if 'btime' in self._obj.dims:
 
-        
+            _obj = self.make_time_seires(timeRange, btimeRange)
+
+        else:
+            _obj = self._obj
+            if timeRange !=None:
+                _obj = _obj.sel(time=timeRange)
+
         if fig == None and ax==None:
             fig, ax = plt.subplots(1,1,**fig_kwargs)
         elif ax==None:
             ax = fig.add_axes(ax)
+        elif fig != None and ax !=None:
+            fig = fig
+            ax=ax
         else:
             raise(ValueError('matplotlib.axes has to have a corresponding figure'))
 
         ax.add_line(_obj[self.var].plot(label = _obj.receptor_name, **plot_kwargs)[0])
 
-        
+
         locator = mdates.AutoDateLocator(minticks=minticks, maxticks=maxticks)
 
         formatter = mdates.ConciseDateFormatter(locator)
@@ -778,14 +789,14 @@ class PROCESS_SRR:
 
         ax.grid(linestyle='-')
 
-        return ax  
-    
+        return fig,ax
+
     def make_data_container(self, timeRange=None, btimeRange=None, reduce = 'mean'):
         _obj = self._obj
 
         if timeRange !=None:
             _obj = _obj.sel(time=timeRange)
-        if btimeRange != None: 
+        if btimeRange != None:
             _obj= _obj.sel(btime = btimeRange)
         _obj = _obj.sum(dim='btime', keep_attrs=True)
         s_time = pd.to_datetime(_obj.time[0].values).strftime('%Y%m%d %H:%M')
@@ -793,22 +804,22 @@ class PROCESS_SRR:
         if reduce =='mean':
             _obj = _obj.mean(dim='time', keep_attrs=True)
             _obj = _obj.assign_attrs(info='Mean {}'.format(self.var))
-        elif reduce == 'cumulative': 
+        elif reduce == 'cumulative':
             _obj = _obj.sum(dim='time', keep_attrs=True)
             _obj = _obj.assign_attrs(info='cumulative {}'.format(self.var))
         else:
-            raise(ValueError('''reduce = {} is not a valid option, 
+            raise(ValueError('''reduce = {} is not a valid option,
                                 shoud be either mean or cumulative'''.format(reduce)))
         _obj = _obj.assign_attrs({'start-date': s_time, 'end-date' : e_time})
         return _obj
-        
 
-    def plot_source_contribution_map(self, timeRange=None, 
-                                            btimeRange= None, 
-                                            reduce='mean', 
+
+    def plot_source_contribution_map(self, timeRange=None,
+                                            btimeRange= None,
+                                            reduce='mean',
                                             vmin = None,
                                             vmax = None,
-                                            fig=None, 
+                                            fig=None,
                                             ax = None,
                                             **fig_kwargs):
         _obj = self.make_data_container(timeRange, btimeRange, reduce)
@@ -816,10 +827,10 @@ class PROCESS_SRR:
             fig, ax = plt.subplots(1,1,subplot_kw={'projection':ccrs.PlateCarree()} ,**fig_kwargs)
         elif ax !=None and fig == None:
             raise(ValueError('matplotlib.axes has to have a corresponding figure'))
-            
+
         elif ax==None and fig != None:
             ax = fig.add_axes(ax)
         else:
             pass
-        
+
         ax = mpl_base_map_plot_xr(_obj,ax,vmin=vmin,vmax=vmax, mark_receptor=True)
