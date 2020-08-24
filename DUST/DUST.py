@@ -769,8 +769,12 @@ class PROCESS_SRR:
         if ax == None: 
             ax=plt.gca()
 
+        if 'label' in plot_kwargs.keys():
+            ax.add_line(_obj[self.var].plot(ax=ax, **plot_kwargs)[0])
+        else:
+            ax.add_line(_obj[self.var].plot(label = _obj.receptor_name, ax=ax, **plot_kwargs)[0])
 
-        ax.add_line(_obj[self.var].plot(label = _obj.receptor_name, ax=ax, **plot_kwargs)[0])
+        
 
 
         # locator = mdates.AutoDateLocator(minticks=minticks, maxticks=maxticks)
