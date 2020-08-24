@@ -301,7 +301,7 @@ class FLEXPART(DUSTBase):
         self._RELCOM = self._obj.RELCOM
 
 
-    def select_receptor_point(self,pointspec, nAgeclass =False, inplace = True):
+    def select_receptor_point(self,pointspec, nAgeclass =False, inplace = False):
         """
         DESCRIPTION
         ===========
@@ -757,39 +757,31 @@ class PROCESS_SRR:
 
         return _obj
 
-    def plot_time_series(self, timeRange=None, btimeRange=None, fig = None,
-                        ax=None,minticks=5, maxticks=14, fig_kwargs = {}, **plot_kwargs):
+    def plot_time_series(self, timeRange=None, btimeRange=None, ax=None,
+                        fig=None, **plot_kwargs):
         if 'btime' in self._obj.dims:
 
             _obj = self.make_time_seires(timeRange, btimeRange)
 
-        else:
-            _obj = self._obj
-            if timeRange !=None:
-                _obj = _obj.sel(time=timeRange)
-
-        if fig == None and ax==None:
-            fig, ax = plt.subplots(1,1,**fig_kwargs)
-        elif ax==None:
-            ax = fig.add_axes(ax)
-        elif fig != None and ax !=None:
-            fig = fig
-            ax=ax
-        else:
-            raise(ValueError('matplotlib.axes has to have a corresponding figure'))
-
-        ax.add_line(_obj[self.var].plot(label = _obj.receptor_name, **plot_kwargs)[0])
+        if ax == None: 
+            ax=plt.gca()
 
 
-        locator = mdates.AutoDateLocator(minticks=minticks, maxticks=maxticks)
+        ax.add_line(_obj[self.var].plot(label = _obj.receptor_name, ax=ax, **plot_kwargs)[0])
 
-        formatter = mdates.ConciseDateFormatter(locator)
+
+        # locator = mdates.AutoDateLocator(minticks=minticks, maxticks=maxticks)
+        locator = mdates.DayLocator(interval=3)
+        locator_minor = mdates.HourLocator(interval=12) 
+
+        formatter = mdates.DateFormatter('%m-%d')
         ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_minor_locator(locator_minor)
         ax.xaxis.set_major_formatter(formatter)
 
         ax.grid(linestyle='-')
 
-        return fig,ax
+        return ax
 
     def make_data_container(self, timeRange=None, btimeRange=None, reduce = 'mean'):
         _obj = self._obj
