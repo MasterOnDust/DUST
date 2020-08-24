@@ -762,6 +762,9 @@ class PROCESS_SRR:
         if 'btime' in self._obj.dims:
 
             _obj = self.make_time_seires(timeRange, btimeRange)
+        
+        else:
+            _obj = self._obj
 
         if ax == None: 
             ax=plt.gca()
