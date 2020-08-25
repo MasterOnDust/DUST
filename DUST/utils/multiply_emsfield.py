@@ -69,11 +69,11 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
         field_name = 'Concentration'
     elif ind_receptor == 4:
         f_name = 'DryDep'
-        field_unit = 'kg/m^2s'
+        field_unit = 'kg/m^2 s'
         field_name = 'Dry depostion'
     elif ind_receptor == 3:
         f_name = 'WetDep'
-        field_unit = 'kg/m^2s '
+        field_unit = 'kg/m^2 s'
         field_name = 'Wet depostion'
     else:
         field = ncfile.createVariable('Spec_mr', 'f4', ('time', 'btime', 'lat', 'lon'), **kwargs)
@@ -83,11 +83,16 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
 
     if isinstance(flexdust,xarray.Dataset):
         emsField=flexdust.Emission
+        area = flexdust.area
     else:
-        emsField = DUST.read_flexdust_output(flexdust)['dset'].Emission
+        flexdust = DUST.read_flexdust_output(flexdust)['dset']
+        emsField = flexdust.Emission
+        area = flexdust.area
+    t_d = pd.to_timedelta((emsField.time[1]-emsField.time[0]).values)
+    time_int = t_d.total_seconds()
 
     # Create netcdf outfile
-#     print(relcom[:-1])
+
     outFileName = path + '/' + '_'.join(relcom) + f_name + sdate +'.nc'
     try:
         ncfile = Dataset(outFileName, 'w', format="NETCDF4")
@@ -140,7 +145,13 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     rellat[:] = d0.RELLAT1.values
     rellon[:] = d0.RELLNG1.values
 
+    # Setup area variable
 
+    area_var = ncfile.createVariable('area', 'f4', ('lat','lon'),**kwargs)
+    area_var.units = 'm^2'
+    area_var.long_name = 'gridbox_area'
+
+    area_var[:] = area.values
     # Setup temporal variable
     btime = ncfile.createVariable('btime', 'i4', ('btime',), **kwargs)
     btime.units = 's'
@@ -159,13 +170,17 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     field.units = field_unit
     field.long_name = field_name
 
-    field.height = d0.height.values     #set the height of the lowest model output layer
+    height = d0.height.values
+    field.height = height     #set the height of the lowest model output layer
     field.lon0 = d0.RELLNG1.values
     field.lat0 = d0.RELLAT1.values
     field.name_location = '-'.join(relcom)
+    field.time_int = time_int
     td = pd.to_timedelta(d0.time.values, unit='s')
     ncfile.close()
-    #time_steps = []
+    #unit_correction = 1/height
+    unit_correction = 1/(height*time_int)
+
     for n, nc_file in enumerate(nc_files):
         if n == 0:
             ncfile = Dataset(outFileName, 'a', format="NETCDF4")
@@ -179,7 +194,10 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
 
         #multiply emission and emission sensitivity
         temp_array = _multiply_emissions(temp_ems.values, ems_sens.values)
+        #after multiplying the emissions and emission sensitivity has units kg.s/m^2 or kg/m
+        temp_array = temp_array*unit_correction
         ncfile['time'][n] = time_step
+        #write to file, concentration in kg/m^3 or total deposition in kg/m^2 s
         outfield[n,:,:,:] = temp_array
 
         if n % 5== 0:
@@ -197,6 +215,7 @@ def _multiply_emissions(ems, ems_sens):
     for i in range(ems.shape[0]):
         for j in range(ems.shape[1]):
             for k in range(ems.shape[2]):
+                # Emsission field has unit kg/m^2 ems_sens has unit m or s
                 temp_array[i,j,k] = ems[i,j,k]*ems_sens[i,j,k]
     return temp_array
 
@@ -212,6 +231,7 @@ def _sel_location(ds,pointspec):
 @dask.delayed
 def multi_flexpart_flexdust_dask(xr_flexpart, xr_flexdust, point_spec):
     """
+    NOT implemented yet!
 
     DESCRIPTION
     ===========
