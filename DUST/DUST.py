@@ -770,9 +770,9 @@ class PROCESS_SRR:
             ax=plt.gca()
 
         if 'label' in plot_kwargs.keys():
-            ax.add_line(_obj[self.var].plot(ax=ax, **plot_kwargs)[0])
+            _obj[self.var].plot(ax=ax, **plot_kwargs)
         else:
-            ax.add_line(_obj[self.var].plot(label = _obj.receptor_name, ax=ax, **plot_kwargs)[0])
+            _obj[self.var].plot(label = _obj.receptor_name, ax=ax, **plot_kwargs)
 
         
 
