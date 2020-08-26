@@ -26,10 +26,10 @@ import xarray
 from IPython import embed
 
 
-mpl.rcParams['axes.titlesize'] = 'xx-large'
-mpl.rcParams['axes.labelsize'] = 'x-large'
-mpl.rcParams['xtick.labelsize'] = 'large'
-mpl.rcParams['ytick.labelsize'] = 'large'
+mpl.rcParams['axes.titlesize'] = 'x-large'
+mpl.rcParams['axes.labelsize'] = 'large'
+mpl.rcParams['xtick.labelsize'] = 'medium'
+mpl.rcParams['ytick.labelsize'] = 'medium'
 #Note Does not work with nested output yet!
 
 def multiply_flexpart_flexdust(flexdust, outpath='./out', locations=None, ncFiles = None, path = None, zlib=True):
