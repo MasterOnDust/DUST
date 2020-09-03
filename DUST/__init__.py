@@ -4,4 +4,4 @@ from .utils.read_output import read_trajectories,read_command_namelist, read_fle
 from .utils.utils import region_slice
 from .utils.maps import tracing_the_winds_map, base_map_func, map_china
 from .DUST import FLEXPART, FLEXDUST
-from .DUST import read_flexdust_output, read_flexpart_output, read_multiple_flexpart_output
+from .DUST import read_flexdust_output, read_flexpart_output, read_multiple_flexpart_output, multiply_flexpart_flexdust
