@@ -112,7 +112,7 @@ if __name__ == "__main__":
     parser.add_argument('--outpath', '--op', help='where the concatinated output should be stored', default='.')
     parser.add_argument('--locations', '--loc', help='number of location to concatinate output for', default='ALL')
     parser.add_argument('--memory_limit', default='4GB', help='memory limit local dask cluster')
-    parser.add_argument('--n_worker', default=8, help='Number of dask workers')
+    parser.add_argument('--n_worker', default=8, type=int, help='Number of dask workers')
     args = parser.parse_args()
     outpath = args.outpath
     path = args.path
