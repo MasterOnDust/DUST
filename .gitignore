@@ -15,3 +15,4 @@
 **/.vscode/
 **/*.egg-info
 tests/test_files/SACOL_FINE-SILTDryDep201905100000.nc
+**/dask-worker-space/
