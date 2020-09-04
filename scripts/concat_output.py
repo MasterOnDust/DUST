@@ -26,7 +26,7 @@ def pre_sum(ds, pointspec):
     return ds
 
 
-def concat_output(ncfiles,pointspec,outpath='',client=None, cluster_kwargs={}):
+def concat_output(ncfiles,pointspec,outpath='',client=None,cluster_kwargs={}):
     """
     DESCRIPTION:
     ===========
@@ -104,7 +104,7 @@ def concat_output(ncfiles,pointspec,outpath='',client=None, cluster_kwargs={}):
     dsets = dsets.assign(data_vars)
     dsets = dsets.assign_attrs(attrsd0)
     dsets = dsets.assign_attrs(attrs_new)
-    dsets.to_netcdf(outpath+outFileName,encoding={'spec001_mr' : {'zlib': True, 'complevel': 6}})
+    dsets.to_netcdf(outpath+outFileName,encoding={'spec001_mr' : {'zlib': True, 'complevel': 6}}, unlimited_dims='time')
 
 if __name__ == "__main__":
     parser = ap.ArgumentParser(description='Concat FLEXPART output from backward simulation along a single time dimmension')
