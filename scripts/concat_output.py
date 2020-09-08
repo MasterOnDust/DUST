@@ -43,9 +43,9 @@ def concat_output(ncfiles,pointspec,outpath='',client=None,cluster_kwargs={}):
 
         ncfiles : List containing path to flexpart output files.
     """
-    if client == None:
-        cluster = LocalCluster(**cluster_kwargs)
-        client = Client(cluster)
+    # if client == None:
+    #     cluster = LocalCluster(**cluster_kwargs)
+    #     client = Client(cluster)
     
     
     def not_usefull(ds):
@@ -113,10 +113,14 @@ if __name__ == "__main__":
     parser.add_argument('--locations', '--loc', help='number of location to concatinate output for', default='ALL')
     parser.add_argument('--memory_limit', default='4GB', help='memory limit local dask cluster')
     parser.add_argument('--n_worker', default=8, type=int, help='Number of dask workers')
+    parser.add_argument('--use_cluster', '--uc', action='store_true', help='Weather to use cluster or not')
     args = parser.parse_args()
     outpath = args.outpath
     path = args.path
     locations = args.locations
+    n_workers=args.n_worker
+    memory_limit=args.memory_limit
+    uc = args.use_cluster
     #IF AVAILABLE_OUPUT file is created, use that instead of recursive search, slow on mounted system 
     if path.endswith('/') == False:
         path = path +'/'
@@ -126,8 +130,11 @@ if __name__ == "__main__":
         ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
     except FileNotFoundError:
         ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
-    cluster = LocalCluster(n_workers=args.n_worker, memory_limit=args.memory_limit)
-    client = Client(cluster)
+    if uc:
+        cluster = LocalCluster(n_workers=n_workers, memory_limit=args.memory_limit,dashboard_address=':4444')
+        client = Client(cluster)
+    else:
+        client=None
     
     d = xr.open_dataset(ncFiles[0])
     relCOMS = d.RELCOM
