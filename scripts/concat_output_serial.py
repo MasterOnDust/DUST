@@ -26,6 +26,9 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
     dataVar = 'spec001_mr'
     lats = d0.latitude.values
     lons = d0.longitude.values
+    heights = d0.height.values
+    rel_lat = d0.RELLAT1.values
+    rel_lon = d0.RELLNG1.values
     ts = d0.time.values
     ind_receptor = d0.ind_receptor
     dims = d0.dims
@@ -34,15 +37,15 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
     f_unit = d0[dataVar].units
     f_longname = d0[dataVar].long_name
     version = d0.source
-    outlat0 = d0.outlat0
-    outlon0 = d0.outlon0
+    out_lat0 = d0.outlat0
+    out_lon0 = d0.outlon0
     ind_source = d0.ind_source
     ind_receptor = d0.ind_receptor
-    loutstep = d0.loutstep
-    loutaver = d0.loutaver
-    lsubgrid = d0.lsubgrid
-    stime = d0.ietime
-    sdate = d0.iedate
+    lout_step = d0.loutstep
+    lout_aver = d0.loutaver
+    lsub_grid = d0.lsubgrid
+    s_time = d0.ietime
+    s_date = d0.iedate
 
 
     title = d0.title
@@ -60,6 +63,7 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
     
     lat_dim = ncfile.createDimension('lat', dims['latitude'])
     lon_dim = ncfile.createDimension('lon', dims['longitude'])
+    height_dim = ncfile.createDimension('height',dims['height'])
     point_dim = ncfile.createDimension('npoint',1)
     #temporal dims
 
@@ -77,6 +81,10 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
     lon.units = 'degrees_east'
     lon.long_name = 'longitude'
 
+    height = ncfile.createVariable('height', 'i4',('height',),**netCDF_kwargs)
+    height.units = 'm'
+    height.long_name = 'height above ground'
+
     #Set receptor location
     rellat = ncfile.createVariable('RELLAT', 'f4', ('npoint',),**netCDF_kwargs)
     rellat.units = 'degrees_north'
@@ -91,6 +99,12 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
     btime.long_name = 'seconds_since_release'
 
     btime[:] = d0.time.values
+
+    lon[:] = lons
+    lat[:] = lats
+    heights[:] = height
+    rellat[:] = rel_lat
+    rellon[:] = rel_lon
 
     time_var = ncfile.createVariable('time', 'f8', ('time',), **netCDF_kwargs)
     time_var.units = "hours since 1980-01-01"
@@ -110,11 +124,11 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
     ncfile.dataVar = name_str
     ncfile.ind_receptor = ind_receptor
     ncfile.ind_source = ind_source
-    ncfile.outlon0 = outlon0
-    ncfile.outlat0 = outlat0
-    ncfile.sdate = sdate
-    ncfile.stime = stime
-    ncfile.lsubgrid = lsubgrid
+    ncfile.outlon0 = out_lon0
+    ncfile.outlat0 = out_lat0
+    ncfile.sdate = s_date
+    ncfile.stime = s_time
+    ncfile.lsubgrid = lsub_grid
     
     ncfile.close()
 
@@ -128,6 +142,7 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
         s_time = pd.to_datetime(temp_ds.iedate + temp_ds.ietime)
         time_step = date2num(s_time, units = "hours since 1980-01-01")
         temp_da = temp_ds[dataVar].values
+        ncfile['time'][n] = time_step
         outfield[:] = temp_da
         if n % 5== 0:
             ncfile.close()
