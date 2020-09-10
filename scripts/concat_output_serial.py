@@ -148,7 +148,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     path = args.path
     outpath = args.outpath
-    locations = args.location
+    locations = args.locations
 
 
     if path.endswith('/') == False:
