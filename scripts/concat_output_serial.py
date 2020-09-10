@@ -102,7 +102,7 @@ def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
 
     lon[:] = lons
     lat[:] = lats
-    height[:] = height
+    height[:] = heights
     rellat[:] = rel_lat
     rellon[:] = rel_lon
 
