@@ -17,7 +17,7 @@ def _sel_location(ds,pointspec, height=None):
 
 def concat_output(ncfiles,pointspec,outpath, netCDF_kwargs={}):
     ncfiles.sort()
-    
+
     d0 = xr.open_dataset(ncfiles[0], decode_times=False)
     d0 = _sel_location(d0,pointspec)
 
