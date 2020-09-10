@@ -76,8 +76,8 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
         field_unit = 'kg/m^2 s'
         field_name = 'Wet depostion'
     else:
-        field = ncfile.createVariable('Spec_mr', 'f4', ('time', 'btime', 'lat', 'lon'), **kwargs)
-        field.units = 'kg/m^3'
+        f_name = 'spec_mr'
+        field_units = 'kg/m^3'
         field_name = 'Unknown'
     # Read flexdust
 
@@ -107,6 +107,7 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     ncfile.flexpart_v = d0.source
     ncfile.receptor_name =  ' '.join(relcom)
     ncfile.reference = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482'
+    ncfile.varName = f_name
 
 
     #Spatial dims

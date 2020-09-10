@@ -3,6 +3,8 @@ from DUST.utils.multiply_emsfield import multi_flexpart_flexdust
 import os
 import glob
 import xarray as xr
+import pandas as pd
+
 """
 AUTHOR
 ======
@@ -46,9 +48,15 @@ if __name__ == "__main__":
         pass
     else:
         os.mkdir(outpath)
+    
+    try:
+        df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+        ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
+    except FileNotFoundError:
+        ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
 
     if nFiles == 'ALL':
-        ncFiles = glob.glob(path + "/**/grid*.nc", recursive=True) #recursively find FLEXPART output files
+        pass
     else:
         ncFiles = glob.glob(path + "/**/grid*.nc", recursive=True)[:int(nFiles)]
 
@@ -61,7 +69,6 @@ if __name__ == "__main__":
     for i , com in enumerate(relCOMS):
         loc = str(com.values)[2:].strip().split()
         if locations == 'ALL':
-            print('ALL', i)
             multi_flexpart_flexdust(outpath,ncFiles,flexdust,i, zlib=zlib)
         else:
             for receptor in locations:
