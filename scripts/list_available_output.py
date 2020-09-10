@@ -23,7 +23,7 @@ if __name__ == "__main__":
     date_index = [pd.to_datetime(p_name[:11],format='%Y%m%d_%H') for p_name in outpaths]
     df = pd.DataFrame(data={'dir_paths':outpaths,'ncfiles':ncfiles}, index=date_index)
 
-    df.to_csv(path + 'AVAILABLE_OUTPUT', date_format='%Y%m%d-%H')
+    df.to_csv('AVAILABLE_OUTPUT', date_format='%Y%m%d-%H')
 
     files = os.listdir(outpaths[0])
     stime = date_index[0].strftime('%Y%d%m-%H')
