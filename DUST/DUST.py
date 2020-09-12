@@ -108,11 +108,17 @@ def read_multiple_flexpart_output(path, ldirect=-1):
 
 
         return ds
-
-
-    nc_files = glob.glob(path + "/**/grid*.nc", recursive=True)
+    if isinstance(path,list)==True:
+        nc_files = path
+    else:
+        try:
+            df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+            nc_files = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
+        except FileNotFoundError:
+            nc_files = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
+    
     dsets = xr.open_mfdataset(nc_files, preprocess=(pre), decode_times=False,
-                            combine='nested', concat_dim='time', parallel=True,data_vars='minimal')
+                                combine='nested', concat_dim='time', parallel=True,data_vars='minimal')
 
     if ldirect < 0:
         dsets = dsets.drop(not_usefull(dsets))
