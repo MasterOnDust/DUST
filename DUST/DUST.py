@@ -82,7 +82,7 @@ def multiply_flexpart_flexdust(flexdust, outpath='./out', locations=None, ncFile
     d.close()
     return files
 
-def read_multiple_flexpart_output(path, ldirect=-1):
+def read_multiple_flexpart_output(path):
     """
     DESCRIPTION
     ===========
@@ -97,14 +97,16 @@ def read_multiple_flexpart_output(path, ldirect=-1):
 
     """
     def not_usefull(ds):
-        essentials = ['RELCOM','RELLNG1','RELLNG2','RELLAT1','RELLAT2','RELZZ1','RELZZ2',
-                  'RELKINDZ','RELSTART','RELEND','RELPART','RELXMASS','LAGE','ORO', 'spec001_mr']
+        essentials = ['spec001_mr']
         return  [v for v in ds.data_vars if v not in essentials]
 
     def pre(ds):
         ds = ds.rename(dict(longitude = 'lon', time= 'btime', latitude='lat'))
+        ds = ds.assign(btime = ds.btime/(3600))
+        ds.btime.attrs['units'] = 'time along backtrajectory in hours'
 
         ds = ds.assign_coords(time=pd.to_datetime(ds.iedate + ds.ietime))
+
 
 
         return ds
@@ -117,22 +119,45 @@ def read_multiple_flexpart_output(path, ldirect=-1):
         except FileNotFoundError:
             nc_files = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
     
+    d0 = xr.open_dataset(nc_files[0])
+    relcom = str(d0.RELCOM.values)[2:].strip()[:-1].split()
+    dend = xr.open_dataset(nc_files[-1]).sel(pointspec=0, numpoint=0, numspec=0)
+    data_vars = {
+        'RELINT' : d0.RELEND - d0.RELSTART, 
+        'START' : d0.RELSTART,
+        'END' :  dend.RELSTART,
+        'RELCOM' : d0.RELCOM,
+        'RELLNG' : d0.RELLNG1,
+        'RELLNG2'  : d0.RELLNG2,
+        'RELLAT' : d0.RELLAT1,
+        'RELLAT2' : d0.RELLAT2,
+        'RELZZ1' : d0.RELZZ1,
+        'RELZZ2' : d0.RELZZ2,
+        'RELKINDZ': d0.RELKINDZ,
+        'ORO' : d0.ORO.rename(longitude='lon', latitude='lat'),
+        'RELPART' : d0.RELPART
+    }
+
+    d0.close()
+
     dsets = xr.open_mfdataset(nc_files, preprocess=(pre), decode_times=False,
                                 combine='nested', concat_dim='time', parallel=True,data_vars='minimal')
 
-    if ldirect < 0:
-        dsets = dsets.drop(not_usefull(dsets))
 
-    dsets = dsets.assign(dict(RELCOM = dsets.RELCOM[0],
-                         RELLNG1 = dsets.RELLNG1[0], RELLNG2=dsets.RELLNG2[0],
-                          RELLAT1 = dsets.RELLAT1[0], RELLAT2=dsets.RELLAT2[0],RELPART = dsets.RELPART.sum(dim='time'),
-                         RELSTART = dsets.RELSTART[0], RELEND = dsets.RELEND[-1], LAGE = dsets.LAGE[0], RELZZ1 = dsets.RELZZ1[0],
-                         RELZZ2 = dsets.RELZZ2[0], RELKINDZ=dsets.RELKINDZ[0]))
+
+    dsets = dsets.drop(not_usefull(dsets))
+
+    dsets = dsets.assign(data_vars)
 
     edate = pd.to_datetime(dsets.time[-1].values)
 
     dsets = dsets.assign_attrs(dict(iedate = edate.strftime('%Y%m%d'),
-                                ietime = edate.strftime('%H%M%S')))
+                                ietime = edate.strftime('%H%M%S'),
+                                dataVar='spec001_mr',
+                                relpart = 'Trajectories released per time step'.format(d0.RELPART),
+                                history = """FLEXPART emission sensitvity, btime hours since release,
+btime should be summed up before time averaging of the output. FLEXPART model output at each time step in has been concatenated 
+along the time dimension. Each FLEXPART simulation has the exact same  model settings."""))
 
     return dsets
 

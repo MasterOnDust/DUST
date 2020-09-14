@@ -160,7 +160,7 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
 
     btime[:] = ts
 
-    time_var = ncfile.createVariable('time', 'f8', ('time',), **kwargs)
+    time_var = ncfile.createVariable('time', 'i4', ('time',), **kwargs)
     time_var.units = "hours since 1980-01-01"
     time_var.long_name = 'time'
 
