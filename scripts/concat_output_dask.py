@@ -67,7 +67,7 @@ def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwar
                     continue
     for path, dset in zip(outfileNames, loc_data):
         dset.to_netcdf(path, encoding = {f_name:
-                            {'dtype' :'f8' , 'zlib':True, 'complevel' : 6}}, unlimited_dims = 'time')
+                            {'dtype' :'f8' , 'zlib':True, 'complevel' : 6}})
 
     
 
