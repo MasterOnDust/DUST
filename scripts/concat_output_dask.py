@@ -74,7 +74,7 @@ def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwar
 if __name__ == "__main__":
     
     parser = ap.ArgumentParser(description='Concat FLEXPART output from backward simulation along a single time dimmension')
-    parser.add_argument('path',nargs=+, help='path to top directory containing flexpart output')
+    parser.add_argument('path',nargs='+', help='path to top directory containing flexpart output')
     parser.add_argument('--outpath', '--op', help='where the concatinated output should be stored', default='.')
     parser.add_argument('--locations', '--loc', help='number of location to concatinate output for', default='ALL')
     parser.add_argument('--bdate', '--bd', help='Beginning of time slice (YYYY-MM-DD)', default=None)
