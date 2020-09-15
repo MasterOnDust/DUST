@@ -18,7 +18,7 @@ if __name__ == "__main__":
         try: 
             os.chdir(path)
         except FileNotFoundError:
-            os.chdir(cwd + path)
+            os.chdir(cwd + '/' + path)
         outfiles = glob.glob('**/output/*.nc', recursive=True)
         
         outpaths = ['/'.join(ncfile.split('/')[:-1]) for ncfile in outfiles]
