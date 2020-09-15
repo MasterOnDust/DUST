@@ -13,8 +13,12 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     paths = args.path
+    cwd = os.getcwd()
     for path in paths:
-        os.chdir(path)
+        try: 
+            os.chdir(path)
+        except FileNotFoundError:
+            os.chdir(cwd + path)
         outfiles = glob.glob('**/output/*.nc', recursive=True)
         
         outpaths = ['/'.join(ncfile.split('/')[:-1]) for ncfile in outfiles]
