@@ -1,144 +1,121 @@
-import time
-import xarray as xr
-
-import pandas as pd
-from functools import partial
-import os
-import shutil
-import glob
-
 import argparse as ap
-
+from netCDF4 import Dataset, num2date, date2num
+import xarray as xr
+import os
+import glob
+import pandas as pd
+import shutil
+import DUST
 from dask.distributed import Client, LocalCluster
 
-def not_usefull(ds):
-    essentials = ['RELPART','RELXMASS', 'spec001_mr']
-    return  [v for v in ds.data_vars if v not in essentials]
+def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwargs={}):
+    ncfiles.sort()
+    name_str = '_'.join(ncfiles[0].split('/')[-1].split('_')[:2])
+    d = xr.open_dataset(ncfiles[0])
+    relCOMS = d.RELCOM
+    d.close()
 
-def pre_sum(ds, pointspec):
-    ds = ds.rename(dict(longitude = 'lon', time= 'btime', latitude='lat'))
-    ds = ds.sel(pointspec=pointspec, numpoint=pointspec, numspec=pointspec, nageclass=0)
-    ds = ds.assign_coords(time=pd.to_datetime(ds.iedate + ds.ietime))
-    ds = ds.drop(not_usefull(ds))
-    ds = ds.sum(dim='btime')
+    dsets = DUST.read_multiple_flexpart_output(path=ncfiles)
 
+    if time_slice:
+        dsets = dsets.sel(time=time_slice) 
 
-    return ds
-
-
-def concat_output(ncfiles,pointspec,outpath='',client=None,cluster_kwargs={}, chunk={'time':1}):
-    """
-    DESCRIPTION:
-    ===========
-        Concat the FLEXPART output netcdf files along a single time dimmension and 
-        then store the output to a single netcdf file. It will create an new netcdf 
-        file for every receptor location. NB this script is make for concatination
-        of backward simulations. 
-    
-    USEAGE:
-    ======
-        
-        conc_output(ncfiles)
-
-
-        ncfiles : List containing path to flexpart output files.
-    """
-    # if client == None:
-    #     cluster = LocalCluster(**cluster_kwargs)
-    #     client = Client(cluster)
-    
-    
-    def not_usefull(ds):
-        essentials = ['RELPART','RELXMASS', 'spec001_mr']
-        return  [v for v in ds.data_vars if v not in essentials]
-
-    def pre_sum(ds, pointspec):
-        ds = ds.rename(dict(longitude = 'lon', time= 'btime', latitude='lat'))
-        ds = ds.sel(pointspec=pointspec, numpoint=pointspec, numspec=pointspec, nageclass=0)
-        ds = ds.assign_coords(time=pd.to_datetime(ds.iedate + ds.ietime))
-        ds = ds.drop(not_usefull(ds))
-
-
-        return ds
-
-    
-
-    d0 = xr.open_dataset(ncfiles[0]).sel(pointspec=0, numpoint=0, numspec=0)
-    relcom = str(d0.RELCOM.values)[2:].strip()[:-1].split()
-    dend = xr.open_dataset(ncfiles[-1]).sel(pointspec=0, numpoint=0, numspec=0)
-    ind_receptor =d0.ind_receptor
+    ind_receptor = dsets.ind_receptor
     if ind_receptor == 1:
-        f_name = 'grid_time'
+        f_name = 'conc' 
+        long_name = 'sensitivity to concentration'
+        units = 's'
     elif ind_receptor == 3:
-        f_name = 'grid_wetdep'
+        f_name = 'wetdep'
+        long_name = 'sensitvity to wet deposition'
+        units = 'm'
     elif ind_receptor ==4:
-        f_name = 'grid_drydep'
+        f_name = 'drydep'
+        long_name = 'sensitvity to dry deposition'
+        units = 'm'
     else:
-        f_name = 'Unknown'
+        raise(ValueError('Value for ind_receptor not recognized {}'.format(ind_receptor)))   
+    dsets = dsets.rename({'spec001_mr' : f_name})
+    dsets = dsets.assign_attrs(dataVar=f_name)
+    dsets[f_name].attrs['units'] = units
+    dsets[f_name].attrs['long_name'] = long_name
+    dsets = dsets.assign_attrs({'dataVar':f_name})
+
+    outfileNames = []
+    loc_data = []
+    sdate = dsets.ibdate
+    comp = dict(zlib=True, complevel=5)
+    for i , com in enumerate(relCOMS):
+        loc = str(com.values)[2:].strip().split()
+        if locations == 'ALL':
+            temp_dset = dsets.sel(pointspec=i, numpoint=i, nageclass=0)
+
+
+            loc_data.append(temp_dset)
+            outfileNames.append(outpath + '/' + '_'.join(loc[:2]) + name_str + sdate +'.nc')
+
+        else:
+            for receptor in locations:
+                if receptor in loc or receptor == str(i):
+                    temp_dset = dsets.sel(pointspec=i, numpoint=i, nageclass=0)
+
+                    loc_data.append(temp_dset)
+
+                    outfileNames.append(outpath + '/' + '_'.join(loc[:2]) + name_str + sdate +'.nc')
+                    
+                else:
+                    continue
+    for path, dset in zip(outfileNames, loc_data):
+        dset.to_netcdf(path, encoding = {f_name:{'zlib':True, 'complevel' : 6}}, unlimited_dims = 'time')
+
     
-    data_vars = {
-        'RELINT' : d0.RELEND - d0.RELSTART, 
-        'START' : d0.RELSTART,
-        'END' :  dend.RELSTART,
-        'RELCOM' : d0.RELCOM,
-        'RELLNG' : d0.RELLNG1,
-        'RELLNG2'  : d0.RELLNG2,
-        'RELLAT' : d0.RELLAT1,
-        'RELLAT2' : d0.RELLAT2,
-        'RELZZ1' : d0.RELZZ1,
-        'RELZZ2' : d0.RELZZ2,
-        'RELKINDZ': d0.RELKINDZ
-    }
-    attrsd0 = d0.attrs
-    attrs_new = {'history': "Created " + time.ctime(time.time()),
-                           'title' : 'FLEXPART backward simulation model output',
-                           'iedate' : dend.iedate,
-                           'ietime' : dend.ietime,
-                           'varName' : 'spec001_mr'}
-    d0.close()
-    dend.close()
-    outFileName =  '_'.join(relcom) +'_{}_{}_{}'.format(f_name,attrsd0['ibdate'], attrs_new['iedate']) + '.nc'
-    pre = partial(pre_sum,pointspec=0)
-    dsets = xr.open_mfdataset(ncfiles, preprocess=pre, decode_times=False,
-                            combine='nested', concat_dim='time', parallel=True,data_vars='minimal')
-    dsets = dsets.assign(data_vars)
-    dsets = dsets.assign_attrs(attrsd0)
-    dsets = dsets.assign_attrs(attrs_new)
-    dsets.to_netcdf(outpath+outFileName,encoding={'spec001_mr' : {'zlib': True, 'complevel': 6}}, unlimited_dims='time',)
 
 if __name__ == "__main__":
+    
     parser = ap.ArgumentParser(description='Concat FLEXPART output from backward simulation along a single time dimmension')
     parser.add_argument('path', help='path to top directory containing flexpart output')
     parser.add_argument('--outpath', '--op', help='where the concatinated output should be stored', default='.')
     parser.add_argument('--locations', '--loc', help='number of location to concatinate output for', default='ALL')
+    parser.add_argument('--bdate', '--bd', help='Beginning of time slice (YYYY-MM-DD)', default=None)
+    parser.add_argument('--edate', '--ed', help='End of time slice (YYYY-MM-DD)', default=None)
     parser.add_argument('--memory_limit', default='4GB', help='memory limit local dask cluster')
     parser.add_argument('--n_worker', default=8, type=int, help='Number of dask workers')
     parser.add_argument('--use_cluster', '--uc', action='store_true', help='Weather to use cluster or not')
-    parser.add_argument('--chunks', '--ch', default=None, help='Specify chunk size', type=int)
+
     args = parser.parse_args()
-    outpath = args.outpath
     path = args.path
+    outpath = args.outpath
     locations = args.locations
+    bdate = args.bdate
+    edate = args.edate
     n_workers=args.n_worker
     memory_limit=args.memory_limit
     uc = args.use_cluster
-    chunk_size = args.chunks
-    chunk_size = {'time': chunk_size}
-    #IF AVAILABLE_OUPUT file is created, use that instead of recursive search, slow on mounted system 
+
+    if bdate and edate == None:
+        time_slice = None
+    elif bdate and edate:
+        e_time = edate
+        s_time = bdate
+
+
+    elif bdate:
+        s_time = bdate
+    else:
+        e_time = edate
+
     if path.endswith('/') == False:
         path = path +'/'
     #IF AVAILABLE_OUPUT file is created, use that before recursive search, slow on mounted system 
     try:
         df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+        df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
+        df = df[s_time:e_time]
         ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
+        time_slice = None
     except FileNotFoundError:
         ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
-    if uc:
-        cluster = LocalCluster(n_workers=n_workers, memory_limit=args.memory_limit,dashboard_address=':4444')
-        client = Client(cluster)
-    else:
-        client=None
-    
+
     d = xr.open_dataset(ncFiles[0])
     relCOMS = d.RELCOM
     ind_receptor = d.ind_receptor
@@ -154,11 +131,11 @@ if __name__ == "__main__":
     else:
         f_name = 'Unknown'
     
-    
-
     e_time = pd.to_datetime(ncFiles[-1][-17:-3]).strftime('%Y-%m-%d')
     
     s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
+
+
     
     dir_p = outpath+'/'+f_name + '_FLEXPART_SRR_{}_{}'.format(s_time, e_time)
     try:
@@ -168,13 +145,6 @@ if __name__ == "__main__":
         shutil.rmtree(dir_p)
         os.mkdir(dir_p)
     dir_p = dir_p + '/'
-    for i , com in enumerate(relCOMS):
-        loc = str(com.values)[2:].strip().split()
-    if locations == 'ALL':
-        concat_output(ncFiles,outpath=dir_p,pointspec=i)
-    else:
-        for receptor in locations:
-            if receptor in loc or receptor == str(i):
-                concat_output(ncFiles, outpath=dir_p, pointspec=i, client=client, chunk = chunk_size)
-            else:
-                continue
+    cluster = LocalCluster(n_workers=n_workers, memory_limit=memory_limit, threads_per_worker=1)
+    client = Client(cluster) 
+    concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
