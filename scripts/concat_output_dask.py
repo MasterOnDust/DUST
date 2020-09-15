@@ -74,7 +74,7 @@ def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwar
 if __name__ == "__main__":
     
     parser = ap.ArgumentParser(description='Concat FLEXPART output from backward simulation along a single time dimmension')
-    parser.add_argument('path', help='path to top directory containing flexpart output')
+    parser.add_argument('path',nargs=+, help='path to top directory containing flexpart output')
     parser.add_argument('--outpath', '--op', help='where the concatinated output should be stored', default='.')
     parser.add_argument('--locations', '--loc', help='number of location to concatinate output for', default='ALL')
     parser.add_argument('--bdate', '--bd', help='Beginning of time slice (YYYY-MM-DD)', default=None)
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     parser.add_argument('--threads_per_worker', '--tpw', default=1, type=int)
 
     args = parser.parse_args()
-    path = args.path
+    paths = args.path
     outpath = args.outpath
     locations = args.locations
     bdate = args.bdate
@@ -99,57 +99,57 @@ if __name__ == "__main__":
     client = Client(cluster) 
     concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
 
-
-    if bdate and edate == None:
-        time_slice = None
-    elif bdate and edate:
-        e_time = edate
-        s_time = bdate
-
-
-    elif bdate:
-        s_time = bdate
-    else:
-        e_time = edate
-
-    if path.endswith('/') == False:
-        path = path +'/'
-    #IF AVAILABLE_OUPUT file is created, use that before recursive search, slow on mounted system 
-    try:
-        df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
-        df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
-        df = df[s_time:e_time]
-        ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
-        time_slice = None
-    except FileNotFoundError:
-        ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
-
-    d = xr.open_dataset(ncFiles[0])
-    relCOMS = d.RELCOM
-    ind_receptor = d.ind_receptor
-    d.close()
-    
-
-    if ind_receptor == 1:
-        f_name = 'Conc'
-    elif ind_receptor == 3:
-        f_name = 'WetDep'
-    elif ind_receptor ==4:
-        f_name = 'DryDep'
-    else:
-        f_name = 'Unknown'
-    
-    e_time = pd.to_datetime(ncFiles[-1][-17:-3]).strftime('%Y-%m-%d')
-    
-    s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
+    for path in paths:
+        if bdate and edate == None:
+            time_slice = None
+        elif bdate and edate:
+            e_time = edate
+            s_time = bdate
 
 
-    
-    dir_p = outpath+'/'+f_name + '_FLEXPART_SRR_{}_{}'.format(s_time, e_time)
-    try:
-        os.mkdir(dir_p)
-    except FileExistsError:
+        elif bdate:
+            s_time = bdate
+        else:
+            e_time = edate
 
-        shutil.rmtree(dir_p)
-        os.mkdir(dir_p)
-    dir_p = dir_p + '/'
+        if path.endswith('/') == False:
+            path = path +'/'
+        #IF AVAILABLE_OUPUT file is created, use that before recursive search, slow on mounted system 
+        try:
+            df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+            df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
+            df = df[s_time:e_time]
+            ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
+            time_slice = None
+        except FileNotFoundError:
+            ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
+
+        d = xr.open_dataset(ncFiles[0])
+        relCOMS = d.RELCOM
+        ind_receptor = d.ind_receptor
+        d.close()
+        
+
+        if ind_receptor == 1:
+            f_name = 'Conc'
+        elif ind_receptor == 3:
+            f_name = 'WetDep'
+        elif ind_receptor ==4:
+            f_name = 'DryDep'
+        else:
+            f_name = 'Unknown'
+        
+        e_time = pd.to_datetime(ncFiles[-1][-17:-3]).strftime('%Y-%m-%d')
+        
+        s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
+
+
+        
+        dir_p = outpath+'/'+f_name + '_FLEXPART_SRR_{}_{}'.format(s_time, e_time)
+        try:
+            os.mkdir(dir_p)
+        except FileExistsError:
+
+            shutil.rmtree(dir_p)
+            os.mkdir(dir_p)
+        dir_p = dir_p + '/'
