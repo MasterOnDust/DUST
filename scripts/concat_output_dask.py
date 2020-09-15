@@ -66,7 +66,8 @@ def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwar
                 else:
                     continue
     for path, dset in zip(outfileNames, loc_data):
-        dset.to_netcdf(path, encoding = {f_name:{'zlib':True, 'complevel' : 6}}, unlimited_dims = 'time')
+        dset.to_netcdf(path, encoding = {f_name:
+                            {'dtype' :'f8' , 'zlib':True, 'complevel' : 6}}, unlimited_dims = 'time')
 
     
 
@@ -81,6 +82,7 @@ if __name__ == "__main__":
     parser.add_argument('--memory_limit', default='4GB', help='memory limit local dask cluster')
     parser.add_argument('--n_worker', default=8, type=int, help='Number of dask workers')
     parser.add_argument('--use_cluster', '--uc', action='store_true', help='Weather to use cluster or not')
+    parser.add_argument('--threads_per_worker', '--tpw', default=1, type=int)
 
     args = parser.parse_args()
     path = args.path
@@ -91,6 +93,12 @@ if __name__ == "__main__":
     n_workers=args.n_worker
     memory_limit=args.memory_limit
     uc = args.use_cluster
+    n_wthreads = args.threads_per_worker
+
+    cluster = LocalCluster(n_workers=n_workers, memory_limit=memory_limit, threads_per_worker=n_wthreads)
+    client = Client(cluster) 
+    concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
+
 
     if bdate and edate == None:
         time_slice = None
@@ -145,6 +153,3 @@ if __name__ == "__main__":
         shutil.rmtree(dir_p)
         os.mkdir(dir_p)
     dir_p = dir_p + '/'
-    cluster = LocalCluster(n_workers=n_workers, memory_limit=memory_limit, threads_per_worker=1)
-    client = Client(cluster) 
-    concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
