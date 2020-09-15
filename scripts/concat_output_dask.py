@@ -11,7 +11,7 @@ from dask.distributed import Client, LocalCluster
 def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwargs={}):
     ncfiles.sort()
     name_str = '_'.join(ncfiles[0].split('/')[-1].split('_')[:2])
-    d = xr.open_dataset(ncFiles[0])
+    d = xr.open_dataset(ncfiles[0])
     relCOMS = d.RELCOM
     d.close()
 
@@ -49,9 +49,8 @@ def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwar
         loc = str(com.values)[2:].strip().split()
         if locations == 'ALL':
             temp_dset = dsets.sel(pointspec=i, numpoint=i, nageclass=0)
-            encode = {var: comp for var in temp_dset.data_vars}
-            encode['unlimited_dims'] = {'time'} 
-            dsets.encoding = encode
+
+
             loc_data.append(temp_dset)
             outfileNames.append(outpath + '/' + '_'.join(loc[:2]) + name_str + sdate +'.nc')
 
@@ -59,17 +58,16 @@ def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwar
             for receptor in locations:
                 if receptor in loc or receptor == str(i):
                     temp_dset = dsets.sel(pointspec=i, numpoint=i, nageclass=0)
-                    temp_dset = dsets.sel(pointspec=i, numpoint=i, nageclass=0)
-                    encode = {var: comp for var in temp_dset.data_vars}
-                    encode['unlimited_dims'] = {'time'} 
-                    dsets.encoding = encode
+
                     loc_data.append(temp_dset)
 
                     outfileNames.append(outpath + '/' + '_'.join(loc[:2]) + name_str + sdate +'.nc')
                     
                 else:
                     continue
-    xr.save_mfdataset(loc_data, outfileNames)
+    for path, dset in zip(outfileNames, loc_data):
+        dset.to_netcdf(path, encoding = {f_name:{'zlib':True, 'complevel' : 6}}, unlimited_dims = 'time')
+
     
 
 if __name__ == "__main__":
@@ -94,12 +92,27 @@ if __name__ == "__main__":
     memory_limit=args.memory_limit
     uc = args.use_cluster
 
+    if bdate and edate == None:
+        time_slice = None
+    elif bdate and edate:
+        e_time = edate
+        s_time = bdate
+
+
+    elif bdate:
+        s_time = bdate
+    else:
+        e_time = edate
+
     if path.endswith('/') == False:
         path = path +'/'
     #IF AVAILABLE_OUPUT file is created, use that before recursive search, slow on mounted system 
     try:
         df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+        df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
+        df = df[s_time:e_time]
         ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
+        time_slice = None
     except FileNotFoundError:
         ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
 
@@ -122,19 +135,7 @@ if __name__ == "__main__":
     
     s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
 
-    if bdate and edate == None:
-        time_slice = None
-    elif bdate and edate:
-        e_time = edate
-        s_time = bdate
-        time_slice = slice(bdate,edate)
 
-    elif bdate:
-        s_time = bdate
-        time_slice = slice(bdate, e_time)
-    else:
-        e_time = edate
-        time_slice = slice(s_time, edate)
     
     dir_p = outpath+'/'+f_name + '_FLEXPART_SRR_{}_{}'.format(s_time, e_time)
     try:
