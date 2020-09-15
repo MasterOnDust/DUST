@@ -97,7 +97,6 @@ if __name__ == "__main__":
 
     cluster = LocalCluster(n_workers=n_workers, memory_limit=memory_limit, threads_per_worker=n_wthreads)
     client = Client(cluster) 
-    concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
 
     for path in paths:
         if bdate and edate == None:
@@ -153,3 +152,5 @@ if __name__ == "__main__":
             shutil.rmtree(dir_p)
             os.mkdir(dir_p)
         dir_p = dir_p + '/'
+        
+        concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
