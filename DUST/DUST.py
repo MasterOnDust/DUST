@@ -121,11 +121,9 @@ def read_multiple_flexpart_output(path):
     
     d0 = xr.open_dataset(nc_files[0])
     relcom = str(d0.RELCOM.values)[2:].strip()[:-1].split()
-    dend = xr.open_dataset(nc_files[-1]).sel(pointspec=0, numpoint=0, numspec=0)
+    dend = xr.open_dataset(nc_files[-1])
     data_vars = {
-        'RELINT' : d0.RELEND - d0.RELSTART, 
-        'START' : d0.RELSTART,
-        'END' :  dend.RELSTART,
+        'RELINT' : d0.RELSTART - d0.RELEND, 
         'RELCOM' : d0.RELCOM,
         'RELLNG' : d0.RELLNG1,
         'RELLNG2'  : d0.RELLNG2,
@@ -148,7 +146,7 @@ def read_multiple_flexpart_output(path):
     dsets = dsets.drop(not_usefull(dsets))
 
     dsets = dsets.assign(data_vars)
-
+    dsets.RELINT.attrs['long_name'] = 'Time intervall of particle release'
     edate = pd.to_datetime(dsets.time[-1].values)
 
     dsets = dsets.assign_attrs(dict(iedate = edate.strftime('%Y%m%d'),
