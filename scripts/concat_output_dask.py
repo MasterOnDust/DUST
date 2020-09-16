@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse as ap
 from netCDF4 import Dataset, num2date, date2num
 import xarray as xr
@@ -6,6 +8,7 @@ import glob
 import pandas as pd
 import shutil
 import DUST
+from subprocess import call
 from dask.distributed import Client, LocalCluster
 
 def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwargs={}):
@@ -97,19 +100,9 @@ if __name__ == "__main__":
 
     cluster = LocalCluster(n_workers=n_workers, memory_limit=memory_limit, threads_per_worker=n_wthreads)
     client = Client(cluster) 
+    # There are some nonsens here :P
 
     for path in paths:
-        if bdate and edate == None:
-            time_slice = None
-        elif bdate and edate:
-            e_time = edate
-            s_time = bdate
-
-
-        elif bdate:
-            s_time = bdate
-        else:
-            e_time = edate
 
         if path.endswith('/') == False:
             path = path +'/'
@@ -117,11 +110,33 @@ if __name__ == "__main__":
         try:
             df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
             df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
-            df = df[s_time:e_time]
-            ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
-            time_slice = None
+
+
         except FileNotFoundError:
-            ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
+            call(['list_available_output.py', path])
+            df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+            df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
+            #ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
+
+        # if bdate and edate == None:
+        #     time_slice = None
+        # elif bdate and edate:
+        #     e_time = edate
+        #     s_time = bdate
+
+
+        # elif bdate:
+        #     s_time = bdate
+        # else:
+        #     e_time = edate
+
+
+        df = df[bdate:edate]
+        ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
+        time_slice = None
+        e_time = pd.to_datetime(ncFiles[-1][-17:-3]).strftime('%Y-%m-%d')
+
+        s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
 
         d = xr.open_dataset(ncFiles[0])
         relCOMS = d.RELCOM
@@ -138,9 +153,7 @@ if __name__ == "__main__":
         else:
             f_name = 'Unknown'
         
-        e_time = pd.to_datetime(ncFiles[-1][-17:-3]).strftime('%Y-%m-%d')
-        
-        s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
+
 
 
         

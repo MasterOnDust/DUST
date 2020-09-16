@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 from netCDF4 import Dataset, num2date, date2num
 import xarray as xr
@@ -5,27 +6,32 @@ import os
 import glob
 import pandas as pd
 import shutil
-
-from multiprocessing import Queue, Process, cpu_count
+from subprocess import call
 
 
 def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
-    d0 = xr.open_dataset(p0, decode_times=False)
-    d0 = _sel_location(d0,pointspec, height)
+    d0 = Dataset(p0, 'r')
     dataVar = 'spec001_mr'
-    lats = d0.latitude.values
-    lons = d0.longitude.values
-    heights = d0.height.values
-    rel_lat = d0.RELLAT1.values
-    rel_lon = d0.RELLNG1.values
-    print(rel_lat, rel_lon)
-    ts = d0.time.values
-    ind_receptor = d0.ind_receptor
-    dims = d0.dims
-    relcom = str(d0.RELCOM.values)[2:].strip()[:-1].split()
-    sdate = num2date(0,d0.time.units).strftime('%Y%m%d%H%M')
+    lats = d0.variables['latitude'][:]
+    lons = d0.variables['longitude'][:]
+    heights = d0.variables['height'][:]
+    rel_lat = d0.variables['RELLAT1'][:][pointspec]
+    rel_lon = d0.variables['RELLNG1'][:][pointspec]
+    ts = d0.variables['time'][:]
+    time_units = d0['time'].units
+    relcom = d0.variables['RELCOM'][pointspec][:]
+
+    dims = d0.dimensions
+    rel_com_str = ''
+    for char in relcom:
+        rel_com_str += char.decode('UTF-8') 
+    rel_com_str = rel_com_str.strip()
+    sdate = num2date(0,time_units).strftime('%Y%m%d%H%M')
+    
     f_unit = d0[dataVar].units
     f_longname = d0[dataVar].long_name
+
+    ind_receptor = d0.ind_receptor
     version = d0.source
     out_lat0 = d0.outlat0
     out_lon0 = d0.outlon0
@@ -40,10 +46,21 @@ def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
 
     title = d0.title
 
+    if ind_receptor == 1:
+        f_name = 'Conc'
+        f_unit = 's'
+    elif ind_receptor == 3:
+        f_name = 'WetDep'
+        f_unit = 'm'
+    elif ind_receptor ==4:
+        f_name = 'DryDep'
+        f_unit = 'm'
+    else:
+        raise(ValueError('Model settings not recognized, ind_receptor {}'.format(ind_receptor)))
     
-    d0.close()
     name_str = '_'.join(p0.split('/')[-1].split('_')[:2])
-    outFileName = outpath + '/' + '_'.join(relcom) + name_str + sdate +'.nc'
+    outFileName = outpath + '/' + '_'.join(rel_com_str.split(' ')) + name_str + sdate +'.nc'
+    
     try:
         ncfile = Dataset(outFileName, 'w', format="NETCDF4")
     except PermissionError:
@@ -51,14 +68,14 @@ def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
         os.remove(outFileName)
         ncfile = Dataset(outFileName, 'w', format='NETCDF4')
     
-    lat_dim = ncfile.createDimension('lat', dims['latitude'])
-    lon_dim = ncfile.createDimension('lon', dims['longitude'])
-    height_dim = ncfile.createDimension('height',dims['height'])
+    lat_dim = ncfile.createDimension('lat', dims['latitude'].size)
+    lon_dim = ncfile.createDimension('lon', dims['longitude'].size)
+    height_dim = ncfile.createDimension('height',dims['height'].size)
     point_dim = ncfile.createDimension('npoint',1)
     #temporal dims
 
     time_dim = ncfile.createDimension('time', None)
-    btime_dim = ncfile.createDimension('btime', dims['time'])
+    btime_dim = ncfile.createDimension('btime', dims['time'].size)
 
    
     #Setup lon/lat (spatial variables)
@@ -85,10 +102,10 @@ def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
     rellon.long_name = 'longitude_receptor'
 
     btime = ncfile.createVariable('btime', 'i4', ('btime',), **netCDF_kwargs)
-    btime.units = 's'
-    btime.long_name = 'seconds_since_release'
+    btime.units = 'hours'
+    btime.long_name = 'time along backtrajectory'
 
-    btime[:] = d0.time.values
+    btime[:] = ts/3600
 
     lon[:] = lons
     lat[:] = lats
@@ -97,10 +114,10 @@ def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
     rellon[:] = rel_lon
 
     time_var = ncfile.createVariable('time', 'f8', ('time',), **netCDF_kwargs)
-    time_var.units = "hours since 1980-01-01"
-    time_var.long_name = 'time'
+    time_var.units = ''
+    time_var.long_name = 'time along back trajectory'
 
-    field = ncfile.createVariable(name_str, 'f4', ('time', 'btime', 'height','lat', 'lon'), **netCDF_kwargs)
+    field = ncfile.createVariable(f_name, 'f4', ('time', 'btime', 'height','lat', 'lon'), **netCDF_kwargs)
     field.units = f_unit
     field.spec_name = f_longname
     field.long_name = 'SRR {}'.format(name_str) 
@@ -111,7 +128,7 @@ def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
     ncfile.info = 'Senstivity to emission from FLEXPART backwards simulation'
     ncfile.version = version
 #     ncfile.concatenated = ','.join(ncfiles)
-    ncfile.dataVar = name_str
+    ncfile.dataVar = f_name
     ncfile.ind_receptor = ind_receptor
     ncfile.ind_source = ind_source
     ncfile.outlon0 = out_lon0
@@ -122,31 +139,51 @@ def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
     
     ncfile.close()
 
-    return ncfile
+    return {'path':outFileName, 'point': pointspec}
 
-def _sel_location(ds,pointspec, height=None):
-    ds = ds.sel(pointspec=pointspec, numpoint=pointspec, numspec=pointspec)
-
-
-    ds = ds.sel(nageclass=0)
-    if height != None:
-        ds = ds.sel(height=height)
-    return ds
 
 
 def concat_output(ncfiles,outpath, n_processes = None, netCDF_kwargs={}):
     ncfiles.sort()
     receptors = xr.open_dataset(ncfiles[0]).numpoint.values
+   
+    ncfiles.sort()
+    receptors = xr.open_dataset(ncfiles[0]).numpoint.values
     p0 = ncfiles[0]
-    
-    processes = []
 
-    if n_processes == None:
-        nproc = cpu_count()
-    else:
-        nproc = n_processes
+    outpaths = [setup_netcdf(p0, receptor) for receptor in receptors]
+    
+    dt1 = pd.to_datetime(ncfiles[0][-17:-3])
+
+    dt2 = pd.to_datetime(ncfiles[1][-17:-3])
+
     
 
+    t_delta = int((dt2 - dt1).seconds/3600)
+    for outfile_dict in outpaths:
+        time_step = 0
+        point_spec = outfile_dict['point']
+        out_path = outfile_dict['path'] 
+        print(out_path)
+        for n, ncfile in enumerate(ncFiles):
+            if n == 0:
+                outfile = Dataset(out_path, 'a', format="NETCDF4")
+                print(outfile)
+                outfield = outfile[outfile.dataVar]
+            print(ncfile)
+            outfile['time'][n] = time_step
+            # print(xr.open_dataset(ncfile))
+            ds = Dataset(ncfile, 'r', format='NETCDF4')
+            # print(ds)
+            outfield[:] = ds.variables['spec001_mr'][0,point_spec,:,:,:,:]
+            if n % 10== 0:
+                outfile.close()
+                print(n,'saved')
+                outfile = Dataset(out_path, 'a', format="NETCDF4")
+                outfield = outfile[outfile.dataVar]
+            time_step = time_step + t_delta
+        outfile.close()
+        
     
     
 
@@ -172,7 +209,11 @@ if __name__ == "__main__":
         df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
         ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
     except FileNotFoundError:
-        ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
+        call(['list_available_output.py', path])
+        df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+        df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
+        ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
+        # ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
 
     d = xr.open_dataset(ncFiles[0])
     relCOMS = d.RELCOM
@@ -201,15 +242,4 @@ if __name__ == "__main__":
         shutil.rmtree(dir_p)
         os.mkdir(dir_p)
     dir_p = dir_p + '/'
-    for i , com in enumerate(relCOMS):
-        loc = str(com.values)[2:].strip().split()
-    if locations == 'ALL':
-        concat_output(ncFiles,outpath=dir_p,pointspec=i)
-    else:
-        for receptor in locations:
-            if receptor in loc or receptor == str(i):
-                concat_output(ncFiles, outpath=dir_p, pointspec=i)
-            else:
-                continue
-
-# %%
+    concat_output(ncFiles,dir_p)
