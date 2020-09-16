@@ -155,10 +155,10 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     area_var[:] = area.values
     # Setup temporal variable
     btime = ncfile.createVariable('btime', 'i4', ('btime',), **kwargs)
-    btime.units = 's'
-    btime.long_name = 'seconds_since_release'
+    btime.units = 'hours'
+    btime.long_name = 'time along backtrajectory'
 
-    btime[:] = ts
+    btime[:] = ts/3600
 
     time_var = ncfile.createVariable('time', 'i4', ('time',), **kwargs)
     time_var.units = "hours since 1980-01-01"

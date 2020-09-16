@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse as ap
 from netCDF4 import Dataset, num2date, date2num
 import xarray as xr
@@ -6,6 +8,7 @@ import glob
 import pandas as pd
 import shutil
 import DUST
+from subprocess import call
 from dask.distributed import Client, LocalCluster
 
 def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwargs={}):
@@ -66,14 +69,15 @@ def concat_output(ncfiles,outpath, locations='ALL', time_slice=None, netCDF_kwar
                 else:
                     continue
     for path, dset in zip(outfileNames, loc_data):
-        dset.to_netcdf(path, encoding = {f_name:{'zlib':True, 'complevel' : 6}}, unlimited_dims = 'time')
+        dset.to_netcdf(path, encoding = {f_name:
+                            {'dtype' :'f8' , 'zlib':True, 'complevel' : 6}})
 
     
 
 if __name__ == "__main__":
     
     parser = ap.ArgumentParser(description='Concat FLEXPART output from backward simulation along a single time dimmension')
-    parser.add_argument('path', help='path to top directory containing flexpart output')
+    parser.add_argument('path',nargs='+', help='path to top directory containing flexpart output')
     parser.add_argument('--outpath', '--op', help='where the concatinated output should be stored', default='.')
     parser.add_argument('--locations', '--loc', help='number of location to concatinate output for', default='ALL')
     parser.add_argument('--bdate', '--bd', help='Beginning of time slice (YYYY-MM-DD)', default=None)
@@ -81,9 +85,10 @@ if __name__ == "__main__":
     parser.add_argument('--memory_limit', default='4GB', help='memory limit local dask cluster')
     parser.add_argument('--n_worker', default=8, type=int, help='Number of dask workers')
     parser.add_argument('--use_cluster', '--uc', action='store_true', help='Weather to use cluster or not')
+    parser.add_argument('--threads_per_worker', '--tpw', default=1, type=int)
 
     args = parser.parse_args()
-    path = args.path
+    paths = args.path
     outpath = args.outpath
     locations = args.locations
     bdate = args.bdate
@@ -91,60 +96,74 @@ if __name__ == "__main__":
     n_workers=args.n_worker
     memory_limit=args.memory_limit
     uc = args.use_cluster
+    n_wthreads = args.threads_per_worker
 
-    if bdate and edate == None:
-        time_slice = None
-    elif bdate and edate:
-        e_time = edate
-        s_time = bdate
+    cluster = LocalCluster(n_workers=n_workers, memory_limit=memory_limit, threads_per_worker=n_wthreads)
+    client = Client(cluster) 
+    # There are some nonsens here :P
+
+    for path in paths:
+
+        if path.endswith('/') == False:
+            path = path +'/'
+        #IF AVAILABLE_OUPUT file is created, use that before recursive search, slow on mounted system 
+        try:
+            df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+            df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
 
 
-    elif bdate:
-        s_time = bdate
-    else:
-        e_time = edate
+        except FileNotFoundError:
+            call(['list_available_output.py', path])
+            df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
+            df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
+            #ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
 
-    if path.endswith('/') == False:
-        path = path +'/'
-    #IF AVAILABLE_OUPUT file is created, use that before recursive search, slow on mounted system 
-    try:
-        df = pd.read_csv(path+'AVAILABLE_OUTPUT', index_col=0)
-        df.index = pd.to_datetime(df.index, format='%Y%m%d-%H')
-        df = df[s_time:e_time]
+        # if bdate and edate == None:
+        #     time_slice = None
+        # elif bdate and edate:
+        #     e_time = edate
+        #     s_time = bdate
+
+
+        # elif bdate:
+        #     s_time = bdate
+        # else:
+        #     e_time = edate
+
+
+        df = df[bdate:edate]
         ncFiles = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
         time_slice = None
-    except FileNotFoundError:
-        ncFiles = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
+        e_time = pd.to_datetime(ncFiles[-1][-17:-3]).strftime('%Y-%m-%d')
 
-    d = xr.open_dataset(ncFiles[0])
-    relCOMS = d.RELCOM
-    ind_receptor = d.ind_receptor
-    d.close()
-    
+        s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
 
-    if ind_receptor == 1:
-        f_name = 'Conc'
-    elif ind_receptor == 3:
-        f_name = 'WetDep'
-    elif ind_receptor ==4:
-        f_name = 'DryDep'
-    else:
-        f_name = 'Unknown'
-    
-    e_time = pd.to_datetime(ncFiles[-1][-17:-3]).strftime('%Y-%m-%d')
-    
-    s_time = pd.to_datetime(ncFiles[0][-17:-3]).strftime('%Y-%m-%d')
+        d = xr.open_dataset(ncFiles[0])
+        relCOMS = d.RELCOM
+        ind_receptor = d.ind_receptor
+        d.close()
+        
+
+        if ind_receptor == 1:
+            f_name = 'Conc'
+        elif ind_receptor == 3:
+            f_name = 'WetDep'
+        elif ind_receptor ==4:
+            f_name = 'DryDep'
+        else:
+            f_name = 'Unknown'
+        
 
 
-    
-    dir_p = outpath+'/'+f_name + '_FLEXPART_SRR_{}_{}'.format(s_time, e_time)
-    try:
-        os.mkdir(dir_p)
-    except FileExistsError:
 
-        shutil.rmtree(dir_p)
-        os.mkdir(dir_p)
-    dir_p = dir_p + '/'
-    cluster = LocalCluster(n_workers=n_workers, memory_limit=memory_limit, threads_per_worker=1)
-    client = Client(cluster) 
-    concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
+        
+        dir_p = outpath+'/'+f_name + '_FLEXPART_SRR_{}_{}'.format(s_time, e_time)
+        try:
+            os.mkdir(dir_p)
+        except FileExistsError:
+
+            shutil.rmtree(dir_p)
+            os.mkdir(dir_p)
+        dir_p = dir_p + '/'
+        
+        concat_output(ncFiles,dir_p, locations=locations,time_slice=time_slice)
