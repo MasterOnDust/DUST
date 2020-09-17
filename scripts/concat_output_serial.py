@@ -146,9 +146,6 @@ def setup_netcdf(p0, pointspec,outpath='.', height=None,**netCDF_kwargs):
 def concat_output(ncfiles,outpath, n_processes = None, netCDF_kwargs={}):
     ncfiles.sort()
     receptors = xr.open_dataset(ncfiles[0]).numpoint.values
-   
-    ncfiles.sort()
-    receptors = xr.open_dataset(ncfiles[0]).numpoint.values
     p0 = ncfiles[0]
 
     outpaths = [setup_netcdf(p0, receptor) for receptor in receptors]
