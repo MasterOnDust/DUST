@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import xarray as xr
 from dask.distributed import LocalCluster, Client
 import DUST
