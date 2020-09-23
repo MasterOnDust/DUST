@@ -4,7 +4,6 @@ import cartopy as cr
 import cartopy.crs as ccrs
 
 import matplotlib.pyplot as plt
-from matplotlib.offsetbox import AnchoredText
 import matplotlib.dates as mdates
 import matplotlib as mpl
 from matplotlib.ticker import LogFormatter , LogFormatterMathtext, LogFormatterSciNotation
@@ -15,7 +14,7 @@ import os
 import glob
 
 from DUST.utils.read_output import *
-from DUST.utils.plotting import mpl_base_map_plot, mpl_base_map_plot_xr
+from DUST.utils.plotting import mpl_base_map_plot_xr
 from DUST.utils.maps import base_map_func
 from DUST.utils.utils import _gen_log_clevs, _gen_flexpart_colormap, _fix_time_flexdust
 from DUST.utils.multiply_emsfield import multi_flexpart_flexdust
@@ -237,7 +236,7 @@ def read_flexpart_trajectories(path_to_available_output, sdate=None, edate=None)
     path = path_to_available_output[:-16]
     df = pd.read_csv(path_to_available_output, index_col=0)
     trajectories = [path+row['dir_paths'] + '/'+ 'trajectories.txt' for index,row in df.iterrows()]
-    print(trajectories)
+    return trajectories
 
 def read_flexdust_output(path_output, **xarray_kwargs):
     """
@@ -270,275 +269,68 @@ def read_flexdust_output(path_output, **xarray_kwargs):
             else:
                 continue
     if len(outdir.keys()) == 1:
-        key = [key for key in outs.keys()][0]
+        key = [key for key in outdir.keys()][0]
         return outdir[key]
     else:
         return outdir
 
 
-class DUSTBase(object):
-    def __init__(self, xarray_obj):
-        self._obj = xarray_obj
+def plot_emission_sensitivity(dset,
+                                data_var,
+                                ax=None,
+                                plotting_method = 'pcolormesh',
+                                info_loc = 'lower right',
+                                log = True,
+                                vmin = None,
+                                vmax = None,
+                                title=None,
+                                extent = None):
+    """
+    Description
+    ===========
 
-        self._x_dim = None
-        self._y_dim = None
-        self._RELCOM = None
+        Main function for plotting flexpart emission sensitivity. Require a 2D data array 
+        Subsetting and so one should instead be done by using xarray.
 
-        if "lon" in self._obj.dims and "lat" in self._obj.dims:
-            self._x_dim = "lon"
-            self._y_dim = "lat"
-        elif "longitude" in self._obj.dims and "latitude" in self._obj.dims:
-            self._x_dim = "longitude"
-            self._y_dim = "latitude"
-        else:
-            raise(ValueError("Spatial dimmensions not recognized try to rename spatial dims"))
+    USAGE
+    =====
 
+        fig, ax = dset.fp.plot_emssion_sensitivity(height)
 
-    def sum(self,dim,keep_attrs=True, **kwargs):
-        if 'RELCOM' in self._obj.data_vars:
-            RELCOM = self._RELCOM
-            ds_sum = self._obj.sum(dim, keep_attrs=keep_attrs, **kwargs)
-            ds_sum = ds_sum.assign(RELCOM = self._RELCOM)
-        else:
-            ds_sum = self._obj.sum(dim, keep_attrs=keep_attrs, **kwargs)
+        required argument:
+            height : height of flexpart output level
+        optional arguments:
+            point           : if xarray.dataset contains several receptor points
+            plotting_method : either 'pcolormesh' or 'contourf' (default='pcolormesh')
+            info_loc        : location of info_box, (default = 'lower right')
+            log             : log colorscale True/False, (default = True)
+            vmin            : lower bound of colorscale (default = None)
+            vmax            : upper bound of colorscale (default = None)
+            title           : plot title, if None default title is created.
+            extent          : extent of the output map,if not already set, default
+                                [70,120, 25, 50]
+            btimeRange      : How far back in time do you want to at emission sensitivity,
+                                using slice('startdate', 'enddate')
+            timeRange       : Forward time slice, only applicable when looking at many flexpart
+                                output files
+            **fig_kwargs    : figure kwargs when creating matplotlib.figure object
 
-        return ds_sum
+    """
 
+    dset = dset.assign_attrs({'varName':data_var})
 
-    def mean(self, dim, keep_attrs=True, **kwargs):
-        if 'RELCOM'in self._obj.data_vars:
+    if 'nageclass' in dset.dims:
+        dset = dset.sel(nageclass=0)
 
-            ds_mean = self._obj.mean(dim, keep_attrs=keep_attrs, **kwargs)
-            ds_mean = ds_mean.assign(RELCOM = self._RELCOM)
-        else:
+    if ax == None:
+        ax = plt.axes(projection=ccrs.PlateCarree)
+        ax = base_map_func(ax)
 
-            ds_mean = self._obj.mean(dim, keep_attrs=keep_attrs, **kwargs)
-        return ds_mean
-
-    def __repr__(self):
-        return self._obj.__repr__()
-
-@xr.register_dataset_accessor('fp')
-class FLEXPART(DUSTBase):
-    def __init__(self, xarray_obj):
-        super(FLEXPART, self).__init__(xarray_obj)
-
-        self._RELCOM = self._obj.RELCOM
-
-
-    def select_receptor_point(self,pointspec, nAgeclass =False, inplace = False):
-        """
-        DESCRIPTION
-        ===========
-            Selects receptor point
-
-        USAGE:
-        =====
-            dset_point = dset.fp.select_receptor_point(pointspec):
-
-        """
-
-        if inplace == True:
-            _obj = self._select_receptor_point(self._obj,pointspec,nAgeclass)
-            _obj = _obj.sel(nageclass=0)
-            self._obj = _obj
-        else:
-            _obj = self._select_receptor_point(self._obj,pointspec,nAgeclass)
-            _obj = _obj.sel(nageclass=0)
-        return _obj
-
-    def _select_receptor_point(self,dataset,pointspec, nAgeclass =False):
-
-        return dataset.sel(pointspec=pointspec,  numspec=pointspec, numpoint=pointspec)
-
-
-    def plot_total_column(self,**kwargs):
-        """
-        DESCRIPTION
-        ===========
-
-            Integrates the height dimmension over all model output layers
-            and plots the emission sensitivity
-
-        USAGE
-        =====
-            fig,ax = dset.fp.plot_emission_sensitivity()
-
-            returns: matplotlib.figure, matplotlib.axes
-        """
-        fig, ax = self.plot_emission_sensitivity(height=None, **kwargs)
-        return fig, ax
-
-    def _set_da_attrs(self,data, _obj=None):
-        if _obj !=None:
-            _obj = _obj
-        else:
-            _obj = self._obj
-
-
-        data = data.assign_attrs(lon0 =_obj.RELLNG1.values,
-                        lat0 = _obj.RELLAT1.values,
-                        relcom = _obj.RELCOM.values )
-        return data
-
-    def make_data_container(self,height=None,
-                            btimeRange=None, timeRange=None, data_var='spec001_mr', ds=None):
-        """
-        DESCRIPTION
-        ===========
-            Constructs the xarray.DataArray which is expected by the mpl_base_map_plot
-            routine.
-
-        """
-        if ds != None:
-            data = ds[data_var]
-        else:
-            data = self._obj[data_var]
-            print(data.dims)
-
-        if height == None:
-            data = data.sum(dim='height')
-        else:
-            try:
-                data = data.sel(height=height)
-            except KeyError:
-                print('Height = {} is not a valid height, check height defined in OUTGRID'.format(height))
-        if 'btime' in data.dims:
-            if btimeRange ==None:
-                data= data.sum(dim='btime', keep_attrs=True)
-            else:
-                try:
-                    data = data.sel(time=btimeRange).sum(dim='time', keep_attrs=True)
-                except KeyError:
-                    print("Invalid time range provided check `timeRange`")
-
-
-        if 'time' in data.dims:
-            if timeRange == None:
-                data = data.mean(dim='time', keep_attrs=True)
-            else:
-                try:
-                    data = data.sel(time=timeRange).mean(dim='time', keep_attrs=True)
-                except KeyError:
-                    print("Invalid time range provided check `btimeRange`")
-
-
-        data = self._set_da_attrs(data, ds)
-        return data
-
-    def plot_emission_sensitivity(self, height,
-                                    data_var = 'spec001_mr',
-                                    point = None,
-                                    plotting_method = 'pcolormesh',
-                                    info_loc = 'lower right',
-                                    log = True,
-                                    vmin = None,
-                                    vmax = None,
-                                    figure=None,
-                                    ax =None,
-                                    title=None,
-                                    mapfunc = None,
-                                    extent = None,
-                                    btimeRange = None,
-                                    timeRange = None,
-                                    **fig_kwargs):
-        """
-        Description
-        ===========
-
-            Main function for plotting flexpart emission sensitivity
-
-        USAGE
-        =====
-
-            fig, ax = dset.fp.plot_emssion_sensitivity(height)
-
-            required argument:
-                height : height of flexpart output level
-            optional arguments:
-                point           : if xarray.dataset contains several receptor points
-                plotting_method : either 'pcolormesh' or 'contourf' (default='pcolormesh')
-                info_loc        : location of info_box, (default = 'lower right')
-                log             : log colorscale True/False, (default = True)
-                vmin            : lower bound of colorscale (default = None)
-                vmax            : upper bound of colorscale (default = None)
-                figure          : matplotlib.figure object (default = None),
-                                  if not provided new figure is created
-                mapfunc         : function for making cartopy map, mapfunc should only take,
-                                  cartopy.GeoAxes as argument and return cartopy.GeoAxes
-                title           : plot title, if None default title is created.
-                extent          : extent of the output map,if not already set, default
-                                  [70,120, 25, 50]
-                btimeRange      : How far back in time do you want to at emission sensitivity,
-                                  using slice('startdate', 'enddate')
-                timeRange       : Forward time slice, only applicable when looking at many flexpart
-                                  output files
-                **fig_kwargs    : figure kwargs when creating matplotlib.figure object
-
-        """
-
-        if 'pointspec' not in self._obj.dims:
-            _obj = self._obj
-        elif point in self._obj.pointspec:
-            # print(pointspec)
-            _obj = self.select_receptor_point(point, inplace=False)
-
-        else:
-            raise(ValueError('Pointspec not selected use select_receptor first or set point != None'))
-        data = self.make_data_container(height, btimeRange, timeRange, data_var, ds =_obj)
-
-
-        if 'nageclass' in data.dims:
-            data = data.sel(nageclass=0)
-        if figure == None and ax==None:
-            fig, ax = plt.subplots(1,1, subplot_kw=dict(projection=ccrs.PlateCarree()),**fig_kwargs)
-        elif ax==None:
-            ax = fig.add_axes(ax)
-        elif figure==None and ax != None:
-            raise(ValueError('matplotlib.axes has to have a corresponding figure'))
-        else:
-            fig=figure
-
-        if  mapfunc:
-            ax = mapfunc(ax)
-        else:
-            ax = base_map_func(ax)
-
-        fig, ax = mpl_base_map_plot(data, ax=ax, fig=fig,
-                                    plotting_method=plotting_method,
-                                    mark_receptor = True, vmin=vmin, vmax=vmax
-                                    )
-        start_date = pd.to_datetime(_obj.iedate + _obj.ietime, yearfirst=True)
-        rel_start = start_date + pd.to_timedelta(_obj.RELSTART.values)
-        rel_end = start_date + pd.to_timedelta(_obj.RELEND.values)
-        rel_part = _obj.RELPART.values
-
-        info_str = ('FLEXPART {}\n'.format(_obj.source[:25].strip()) +
-                    'Release start : {}\n'.format(rel_start.strftime('%d/%m/%y %H:%M')) +
-                    'Release end : {}\n'.format(rel_end.strftime('%d/%m/%y %H:%M')) +
-                    'Particles released : {:.2E}'.format(rel_part)
-                    )
-
-        anc_text = AnchoredText(info_str, loc=info_loc ,bbox_transform=ax.transAxes,prop=dict(size=8))
-        ax.add_artist(anc_text)
-
-        if extent == None and ax.get_extent() == None:
-            ax.set_extent([70,120, 25, 50], crs=ccrs.PlateCarree())
-        elif extent ==None:
-            pass
-        else:
-            ax.set_extent(extent)
-
-        if title != None:
-            ax.set_title(title)
-        else:
-            if _obj.ldirect == -1:
-                ax.set_title('FLEXPART backward trajectory simulation starting at {} UTC'.format(start_date.strftime('%b %d %Y %H%M'))
-                ,fontsize=16)
-            else:
-                ax.set_title('FLEXPART forward trajectory simulation starting at {} UTC'.format(start_date.strftime('%b %d %Y %H%M'))
-                ,fontsize=16)
-        return fig, ax
+    ax = mpl_base_map_plot_xr(dset, ax=ax,
+                                plotting_method=plotting_method,
+                                mark_receptor = True, vmin=vmin, vmax=vmax
+                                )
+    return ax
 
 
 @xr.register_dataset_accessor('fd')

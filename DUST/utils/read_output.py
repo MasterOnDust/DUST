@@ -117,21 +117,22 @@ def read_outGrid_namelist(output_dir):
     return outGrDict
         
 
-"""
-DESCRIPTION
-===========
-
-    Read in the trajectories.txt and returns the data in a pandas dataframe
-
-USAGE
-=====
-    df = read_trajectories(output_dir, nclusters=5)
-
-        output_dir: Path to directory containing the FLEXPART output
-        nclusters: The number of cluster used in the simulation. (it might be 
-        written in the Trajectories.txt file)
-"""
 def read_trajectories(output_dir, nclusters=5):
+    
+    """
+    DESCRIPTION
+    ===========
+
+        Read in the trajectories.txt and returns the data in a pandas dataframe
+
+    USAGE
+    =====
+        df = read_trajectories(output_dir, nclusters=5)
+
+            output_dir: Path to directory containing the FLEXPART output
+            nclusters: The number of clusters used in the simulation. FLEXPART default is 5 (it might be 
+            written in the Trajectories.txt file)
+    """
     cluster_list = []
     cluster_names = ['xcluster', 'ycluster', 'zcluster', 'fcluster',
     'rmscluster']
@@ -149,6 +150,7 @@ def read_trajectories(output_dir, nclusters=5):
     trajecFile = open(output_dir + 'trajectories.txt', 'r')
     header = trajecFile.readline().split(' ')
     s_time = pd.to_datetime(header[0] + header[1])
+    print(s_time)
 
     df = pd.read_csv(output_dir + 'trajectories.txt', sep='\s+',
                     skiprows=lambda x: x <24, names=cols)
@@ -156,7 +158,7 @@ def read_trajectories(output_dir, nclusters=5):
     sec_p_rel = df['time']
     time_p_rel = s_time + pd.to_timedelta(sec_p_rel, unit = 's')
     df.index = time_p_rel
-    df = df.drop(['time'], axis=1)
+    # df = df.drop(['time'], axis=1)
     return df
 
 

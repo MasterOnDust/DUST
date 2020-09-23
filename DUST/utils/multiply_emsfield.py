@@ -136,7 +136,7 @@ def multi_flexpart_flexdust(path, nc_files, flexdust, point_spec, **kwargs):
     rellat.units = 'degrees_north'
     rellat.long_name = 'latitude_receptor'
 
-    rellon = ncfile.createVariable('RELLON', 'f4', ('npoint',), **kwargs)
+    rellon = ncfile.createVariable('RELLNG', 'f4', ('npoint',), **kwargs)
     rellon.units = 'degrees_east'
     rellon.long_name = 'longitude_receptor'
 
