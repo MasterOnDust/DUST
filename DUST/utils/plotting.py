@@ -28,13 +28,13 @@ def create_info_str(ax,info_dict, loc):
 
 def mpl_base_map_plot_xr(dataset, ax,
                     plotting_method = 'pcolormesh',
+                    datavar = None,
                     log = True,
                     vmin = None,
                     vmax = None,
                     mark_receptor = False,
                     colorbar =True,
                     **kwargs):
-    print()
     """
     DESCRIPTION
     ===========
@@ -43,6 +43,10 @@ def mpl_base_map_plot_xr(dataset, ax,
     USAGE:
     ======
     """
+    if datavar == None:
+        varName = dataset.varName
+    else:
+        varName = datavar
     default_options = {'cmap': None}
 
     default_options.update(kwargs)
@@ -54,13 +58,13 @@ def mpl_base_map_plot_xr(dataset, ax,
         cmap = default_options.pop('cmap')
 
     if vmin  ==None and vmax == None:
-        dat_min = dataset[dataset.varName].min()
-        dat_max = dataset[dataset.varName].max()
+        dat_min = dataset[varName].min()
+        dat_max = dataset[varName].max()
     elif vmin != None and vmax == None:
         dat_min = vmin
-        dat_max = dataset[dataset.varName].max()
+        dat_max = dataset[varName].max()
     elif vmin == None and vmax != None:
-        dat_min = dataset[dataset.varName].min()
+        dat_min = dataset[varName].min()
         dat_max = vmax
     else:
         dat_max = vmax
@@ -74,11 +78,11 @@ def mpl_base_map_plot_xr(dataset, ax,
         norm = None
 
     if plotting_method == 'pcolormesh':
-         dataset[dataset.varName].plot.pcolormesh(ax=ax,
+         dataset[varName].plot.pcolormesh(ax=ax,
                 norm=norm,
                 cmap = cmap, add_colorbar=colorbar, levels=levels,extend='max',**default_options)
     elif plotting_method =='contourf':
-        ax.add_artist(dataset[dataset.varName].plot.contourf(ax=ax, transform  = ccrs.PlateCarree(),
+        ax.add_artist(dataset[varName].plot.contourf(ax=ax, transform  = ccrs.PlateCarree(),
                 norm=norm,
                 cmap = cmap, levels=levels, add_colorbar=colorbar,extend='max',**default_options))
     else:
@@ -171,9 +175,9 @@ def make_animation(data ,map_func, title,
 
 def _init_fig(fig, ax, artists, extent, map_func , title, data):
     ax.set_title(title, fontsize=22)
-    ax = map_func(ax, extent)
-
-    ax.scatter(data.lon0, data.lat0, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
+    ax = map_func(ax)
+    if 'lon0' in data.attrs:
+        ax.scatter(data.lon0, data.lat0, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
 
     artists.mesh.set_array([])
     return artists
