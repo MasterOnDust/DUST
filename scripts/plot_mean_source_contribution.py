@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import xarray as xr
 from dask.distributed import LocalCluster, Client
 import DUST
@@ -106,7 +108,7 @@ if __name__ == "__main__":
     vmax = args.vmax
 
     if use_cluster == True:
-        cluster = LocalCluster(n_workers=32, threads_per_worker=1, memory_limit='16GB')
+        cluster = LocalCluster(n_workers=16, threads_per_worker=1, memory_limit='16GB')
         client= Client(cluster)
         print(cluster)
 

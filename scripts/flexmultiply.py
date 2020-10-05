@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse as ap
 from DUST.utils.multiply_emsfield import multi_flexpart_flexdust
 import os

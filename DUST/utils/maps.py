@@ -52,14 +52,14 @@ def tracing_the_winds_map(ax):
     China_desert = ['GOBI DESERT', 'Mu Us Desert', 'TAKLIMAKAN DESERT']
     China_mountain = ['TIAN SHAN', 'ALTUN MTS.', 'HIMALAYAS', 'PLATEAU OF TIBET']
     China_plateu = ['Loess Plateau']
-    for feature in regionfeature:
+    for feature in regionfeature: 
         if feature.attributes['name'] in China_desert:
             geom = [feature.geometry]
 
-            g = ax.add_geometries(geom, ccrs.PlateCarree(), facecolor='none', edgecolor='tan', linewidth=2)
+            # g = ax.add_geometries(geom, ccrs.PlateCarree(), facecolor='none', edgecolor='tan', linewidth=2)
             x = feature.geometry.centroid.x
             y = feature.geometry.centroid.y
-            ax.text(x, y, feature.attributes['name_en'], color='darkorange', size=12, ha='center',
+            ax.text(x, y, feature.attributes['name'], color='darkorange', size=12, ha='center',
                     va='center', transform=ccrs.PlateCarree())
         elif feature.attributes['name'] in China_mountain:
             geom = [feature.geometry]
@@ -73,7 +73,7 @@ def tracing_the_winds_map(ax):
         elif feature.attributes['name'] in China_plateu:
             geom = [feature.geometry]
 
-            g = ax.add_geometries(geom, ccrs.PlateCarree(), facecolor='none', edgecolor='peru', linewidth=2)
+            # g = ax.add_geometries(geom, ccrs.PlateCarree(), facecolor='none', edgecolor='peru', linewidth=2)
             x = feature.geometry.centroid.x
             y = feature.geometry.centroid.y
             ax.text(x, y, feature.attributes['name_en'], color='sienna', size=12,
