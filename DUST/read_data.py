@@ -1,13 +1,19 @@
 
 import os
 import pandas as pd
+import numpy as np
 import glob
 import xarray as xr
 
-from DUST.utils.read_output import read_command_namelist, read_outGrid_namelist, read_release_namelist
+from .utils.read_output import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
+from .utils.utils import _fix_time_flexdust
 
 """
 This file contain functions for preparing data for analysis
+
+Standard conventions:
+    "time" : allways forward time
+    "btime" : time along backward trajectory
 
 
 """
@@ -204,3 +210,73 @@ def read_flexdust_output(path_output, **xarray_kwargs):
         return outdir[key]
     else:
         return outdir
+
+def read_flexpart_output(path_output, dataVars='spec001_mr',ldirect=-1,**dset_kwargs):
+    """
+    DESCRIPTION
+    ===========
+
+        Read flexpart netcdf output file and prepare the dataset for further analysis.
+        
+    """
+
+
+
+    
+    if ldirect == -1:
+        dset = xr.open_dataset(path_output,decode_times=False,**dset_kwargs)
+        usefull = ['RELCOM', 'RELLNG1', 'RELLNG2', 'RELLAT1','RELLAT2', 'RELZZ1', 'RELZZ2'
+          ,'RELKINDZ', 'RELSTART', 'RELEND', 'RELPART','ORO']
+        usefull.append(dataVars)
+        print(usefull)
+        not_usefull = [v for v in dset.data_vars if v not in usefull]
+        dset = dset.drop(not_usefull)
+        dset = dset.rename(time='btime')
+        dset['btime'] = dset.btime.assign_attrs({'long_name':'time along back trajectory', 'units':'hours'})
+        dset = dset.assign_attrs({'varName':dataVars})
+        dset = dset.assign_coords(btime=(dset.btime/3600).astype(np.short))
+    else:
+        dset = xr.open_dataset(path_output, **dset_kwargs)
+
+    dset = dset.swap_dims({'numpoint':'pointspec'})
+    dset.re
+    relcoms = dset.RELCOM.str.strip().str.decode('utf-8').values
+
+    dset = dset.assign(RELCOM = xr.DataArray(relcoms, dims=('pointspec'),
+                    coords={'pointspec' : relcoms},
+                  attrs={'long_name':'release point name'}))
+    dset = dset.rename(pointspec='point')
+    dset['point'] = dset.point.assign_attrs({'long_name': 'Name of release location'})
+    dset = dset.rename({'longitude':'lon', 'latitude':'lat'})
+    
+
+    dset = dset.squeeze()    
+
+
+    return dset
+
+def read_data(path_output, dataVar='spec001_mr',**dset_kwargs):
+    """
+    DESCRIPTION
+    ===========
+
+        Base function from reading datafiles
+    """
+    
+    pass
+
+def read_grib_data(path, shortName=None,**dset_kwargs):
+    """
+    DESCRIPTION
+    ===========
+        Reading grib files for analysing model forcing. 
+
+    """
+    if shortName==None:
+        ds_grib = xr.open_dataset(path, 
+                          engine='cfgrib', backend_kwargs={'filter_by_keys':{'typeOfLevel':'heightAboveGround', 'edition':1}})
+    else:
+        ds_grib = xr.open_dataset(path, 
+                        engine='cfgrib', backend_kwargs={'filter_by_keys':{'shortName':shortName}})
+    
+    return ds_grib

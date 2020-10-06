@@ -4,7 +4,17 @@ import xarray as xr
 import pandas as pd
 
 
-def integrate_area(dset, area=None):
+def set_varName(dset, varName):
+    """
+    DESCRIPTION
+    ============
+        Set the attribute which the processing and plotting methods
+        will use to acess the data.
+
+    """
+    dset = dset.assign_attrs({'varName':varName})
+    return dset
+def multiply_area(dset, area=None):
 
     """
     DESCRIPTION:
