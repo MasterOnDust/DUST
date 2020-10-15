@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import glob
 import xarray as xr
-
+import dask
 from .utils.read_output import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
 from .utils.utils import _fix_time_flexdust
 
@@ -18,9 +18,9 @@ Standard conventions:
 
 """
 
+xr.set_options(keep_attrs=True)
 
-
-def read_multiple_flexpart_outputs(path):
+def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,**dset_kwargs):
     """
     DESCRIPTION
     ===========
@@ -34,21 +34,14 @@ def read_multiple_flexpart_outputs(path):
 
         return : python dictionary containing xarray datasets
 
+        todo:: I don't really whats the best way to concatenated netCDF files using xarray
+                So, currently this fuction feel very slow and not particularly robust, but it might
+                work fine for concatinating few files. At the moment it is better to first run concat_output.py
+                , which create the a concatinated netCDF file of the output with the correct formatting and
+                then to the analysis of the output.
+
     """
-    def not_usefull(ds):
-        essentials = ['spec001_mr']
-        return  [v for v in ds.data_vars if v not in essentials]
 
-    def pre(ds):
-        ds = ds.rename(dict(longitude = 'lon', time= 'btime', latitude='lat'))
-        ds = ds.assign(btime = ds.btime/(3600))
-        ds.btime.attrs['units'] = 'time along backtrajectory in hours'
-
-        ds = ds.assign_coords(time=pd.to_datetime(ds.iedate + ds.ietime))
-
-
-
-        return ds
     if isinstance(path,list)==True:
         nc_files = path
     else:
@@ -58,46 +51,26 @@ def read_multiple_flexpart_outputs(path):
         except FileNotFoundError:
             nc_files = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
     
-    d0 = xr.open_dataset(nc_files[0])
-    relcom = str(d0.RELCOM.values)[2:].strip()[:-1].split()
-    dend = xr.open_dataset(nc_files[-1])
-    data_vars = {
-        'RELINT' : d0.RELSTART - d0.RELEND, 
-        'RELCOM' : d0.RELCOM,
-        'RELLNG' : d0.RELLNG1,
-        'RELLNG2'  : d0.RELLNG2,
-        'RELLAT' : d0.RELLAT1,
-        'RELLAT2' : d0.RELLAT2,
-        'RELZZ1' : d0.RELZZ1,
-        'RELZZ2' : d0.RELZZ2,
-        'RELKINDZ': d0.RELKINDZ,
-        'ORO' : d0.ORO.rename(longitude='lon', latitude='lat'),
-        'RELPART' : d0.RELPART
+    if time_step==None:
+        # determine timestep of forward time dimmension based on file name
+        time_step = int(int(nc_files[1].split('/')[-1].split('_')[-1][9])-int(nc_files[0].split('/')[-1].split('_')[-1][9]))
+    else:
+        time_step = time_step
+    print(time_step)
+    load_data_kwargs = dict(dataVars=data_Vars,ldirect=-1)
+    load_data_kwargs = {**load_data_kwargs, **dset_kwargs}
+    dsets = [dask.delayed(read_flexpart_output)(path, **load_data_kwargs) for path in nc_files]
+    data_vars_list = map(lambda x: dask.delayed(x[x.varName]),dsets)
+    data_vars_list = dask.compute(data_vars_list)
+    concated = xr.concat(data_vars_list[0],pd.Index(range(0,len(dsets)*time_step,time_step),name='time'))
+    
+    with read_flexpart_output(nc_files[0], dataVars=data_Vars) as d0:
+        dset_out = d0.assign({data_Vars:concated})
         
-    }
-
-    d0.close()
-
-    dsets = xr.open_mfdataset(nc_files, preprocess=(pre), decode_times=False,
-                                combine='nested', concat_dim='time', parallel=True,data_vars='minimal')
-
-
-
-    dsets = dsets.drop(not_usefull(dsets))
-
-    dsets = dsets.assign(data_vars)
-    dsets.RELINT.attrs['long_name'] = 'Time intervall of particle release'
-    edate = pd.to_datetime(dsets.time[-1].values)
-
-    dsets = dsets.assign_attrs(dict(iedate = edate.strftime('%Y%m%d'),
-                                ietime = edate.strftime('%H%M%S'),
-                                varName='spec001_mr',
-                                relpart = 'Trajectories released per time step'.format(d0.RELPART),
-                                history = """FLEXPART emission sensitvity, btime hours since release,
-btime should be summed up before time averaging of the output. FLEXPART model output at each time step in has been concatenated 
-along the time dimension. Each FLEXPART simulation has the exact same  model settings."""))
-
-    return dsets
+    dset_out.attrs['source'] = dset_out.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
+    dset_out.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dset_out.iedate + dset_out.ietime).strftime('%Y-%m-%d %H:%M'))
+    dset_out = xr.decode_cf(dset_out, decode_times=True)
+    return dset_out
 
 def read_flexpart_metadata(path_output_folder):
     
@@ -161,19 +134,71 @@ def read_flexpart_metadata(path_output_folder):
     else:
         return outs
 
-def read_flexpart_trajectories(path_to_available_output, sdate=None, edate=None):
+def load_trajectories(path, nclusters=5):
+    cluster_list = []
+    cluster_names = ['xcluster', 'ycluster', 'zcluster', 'fcluster',
+    'rmscluster']
+    for i in range(nclusters):
+        for cn in cluster_names:
+            cluster_list.append(cn + '(' +str(i)+ ')')
+
+    with open(path,'r') as trajecFile:
+        header = trajecFile.readline().split(' ')
+        trajecFile.readline()
+        nlocs = int(trajecFile.readline().strip())
+        lines = [next(trajecFile) for i in range(nlocs*3)]
+        locs = {i+1:line.strip() for i,line in enumerate(lines[2::3])}
+            
+        
+    s_time = pd.to_datetime(header[0] + header[1])
+
+    cols = ['location', 'time', 'lon', 'lat',
+         'height', 'mean topography',
+         'mean mixing height', 'mean tropopause height', 'mean PV index',
+         'rms distance', 'rms', 'zrms distance', 'zrms',
+         'fraction mixing layer', 'fraction PV<2pvu',
+         'fraction in troposphere'] + cluster_list
+    
+    
+    df = pd.read_csv(path, sep='\s+',
+                    skiprows=lambda x: x <24, names=cols)
+    
+    for key, location in locs.items():
+        df.loc[df.loc[:,'location']==key, 'location'] = location
+    
+    df.loc[:,['location']] = df.loc[:,['location']].astype('category')
+#     time_p_rel = s_time + pd.to_timedelta(sec_p_rel, unit = 's')
+    df['start time'] = s_time
+    return df, locs
+
+def read_flexpart_trajectories(path_to_top_directory, nclusters=5):
     """
     DESCRIPTION
     ===========
-        Assume that AVAILABLE_OUTPUT is present, AVAILABLE_OUTPUT generated by the 
-        list_available_output.py in the scripts folder 
+        Read all trajectories.txt files present the top folder and subfolders.
+        The concatinate the data return return a dictionary containing the recptor
+        location and pandas DataFrame containing the trajectory information.
+
+    USAGE:
+    =====
+        trajectories, locations = read_flexpart_trajectories(path, nclusters)
+
+        nclusters : how many clusters does the trajectory file contain? (default = 5)
+        path_to_top_directory : path top directory containing FLEXPART model output
 
     """
-   
-    path = path_to_available_output[:-16]
-    df = pd.read_csv(path_to_available_output, index_col=0)
-    trajectories = [path+row['dir_paths'] + '/'+ 'trajectories.txt' for index,row in df.iterrows()]
-    return trajectories
+    if isinstance(path_to_top_directory,list)==True:
+        paths = path_to_top_directory
+    else:
+        try:
+            df = pd.read_csv(path_to_top_directory+'AVAILABLE_OUTPUT', index_col=0)
+            paths = [path_to_top_directory+row['dir_paths'] + '/trajectories.txt' for index,row in df.iterrows()]
+        except FileNotFoundError:
+            paths = glob.glob(path_to_top_directory + "**/trajectories.txt", recursive=True) #recursively find FLEXPART output files
+    
+    locations = load_trajectories(paths[0])[0]
+    trajectories = [load_trajectories(path, nclusters)[0] for path in paths]
+    return pd.concat(trajectories, ignore_index=True), locations
 
 def read_flexdust_output(path_output, **xarray_kwargs):
     """
@@ -217,36 +242,58 @@ def read_flexpart_output(path_output, dataVars='spec001_mr',ldirect=-1,**dset_kw
     ===========
 
         Read flexpart netcdf output file and prepare the dataset for further analysis.
+
+    USAGE
+    =====
+
+        dset = read_flexpart_output(path_output)
+
+        Arguments:
+        
+            path_output : path to netCDF file containing flexpart output
+        
+        Optional arguments:
+
         
     """
 
+    dset = xr.open_dataset(path_output, decode_times=False, **dset_kwargs)
+    dset = prepare_flexpart_dataset(dset, dataVars, ldirect)
+    return dset
+        
+def prepare_flexpart_dataset(dset,dataVars='spec001_mr',ldirect=-1):
+    """
+    DESCRIPTION
+    ===========
+        Base function cleaing the flexpart output and preparing the data for
+        further processing.
 
+    """
 
     
     if ldirect == -1:
-        dset = xr.open_dataset(path_output,decode_times=False,**dset_kwargs)
+        
         usefull = ['RELCOM', 'RELLNG1', 'RELLNG2', 'RELLAT1','RELLAT2', 'RELZZ1', 'RELZZ2'
           ,'RELKINDZ', 'RELSTART', 'RELEND', 'RELPART','ORO']
         usefull.append(dataVars)
-        print(usefull)
         not_usefull = [v for v in dset.data_vars if v not in usefull]
         dset = dset.drop(not_usefull)
-        dset = dset.rename(time='btime')
-        dset['btime'] = dset.btime.assign_attrs({'long_name':'time along back trajectory', 'units':'hours'})
-        dset = dset.assign_attrs({'varName':dataVars})
+        dset = dset.rename({'time':'btime'})
         dset = dset.assign_coords(btime=(dset.btime/3600).astype(np.short))
-    else:
-        dset = xr.open_dataset(path_output, **dset_kwargs)
+        dset.btime.attrs['units'] = 'hours'
+        dset.btime.attrs['long_name'] = 'time along back trajectory'
+        dset = dset.assign_attrs({'varName':dataVars})
+
+        
+
 
     dset = dset.swap_dims({'numpoint':'pointspec'})
-    dset.re
     relcoms = dset.RELCOM.str.strip().str.decode('utf-8').values
-
     dset = dset.assign(RELCOM = xr.DataArray(relcoms, dims=('pointspec'),
                     coords={'pointspec' : relcoms},
                   attrs={'long_name':'release point name'}))
     dset = dset.rename(pointspec='point')
-    dset['point'] = dset.point.assign_attrs({'long_name': 'Name of release location'})
+    dset.point.attrs['long_name'] =  'Name of release location'
     dset = dset.rename({'longitude':'lon', 'latitude':'lat'})
     
 
@@ -255,15 +302,16 @@ def read_flexpart_output(path_output, dataVars='spec001_mr',ldirect=-1,**dset_kw
 
     return dset
 
-def read_data(path_output, dataVar='spec001_mr',**dset_kwargs):
+def read_data(path_output,**dset_kwargs):
     """
     DESCRIPTION
     ===========
 
-        Base function from reading datafiles
+        Function reading datafiles which have already been formated in the correct datafromat
+        This is just a wrapper of xarray.open_dataset()
     """
     
-    pass
+    return xr.open_dataset(path_output, **dset_kwargs)
 
 def read_grib_data(path, shortName=None,**dset_kwargs):
     """
@@ -278,5 +326,6 @@ def read_grib_data(path, shortName=None,**dset_kwargs):
     else:
         ds_grib = xr.open_dataset(path, 
                         engine='cfgrib', backend_kwargs={'filter_by_keys':{'shortName':shortName}})
+        ds_grib = ds_grib.assign_attrs({'varName':shortName})
     
     return ds_grib

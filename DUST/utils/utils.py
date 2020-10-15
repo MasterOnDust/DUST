@@ -2,6 +2,17 @@
 import numpy as np
 import xarray as xr
 import pandas as pd
+import argparse as ap
+
+def arg_parser(description='FLEXDUST parser'):
+    parser = ap.ArgumentParser(description=description)
+    parser.add_argument('path', help='path to top directory containing flexpart output')
+    parser.add_argument('--outpath', '--op', help='where the output should be stored', default='.')
+    parser.add_argument('--locations', '--loc', help='number of location to apply fuction to', default='ALL')
+    
+    return parser
+
+
 
 
 def set_varName(dset, varName):
