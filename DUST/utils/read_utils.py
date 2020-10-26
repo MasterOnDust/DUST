@@ -1,5 +1,6 @@
 """
-functions for reading FLEXPART and FLEXDUST output
+Different function for reading flexpart/flexdust 
+text files.
 
 Works only for FLEXPART V10 or newer
 
@@ -11,26 +12,26 @@ AUTHOR:
 
 """
 import pandas as pd
-import xarray as xr
-from IPython import embed 
 
-"""
-DESCIRPTION:
-===========
 
-    Reads the Command namelist in the flexpart output directory
-    and return the content as a dictionary 
-
-USAGE:
-=====
-
-    com_dict = read_command_namelist(output_dir)
-
-        output_dir : directory containing FLEXPART output
-        
-        returns: python dictionary 
-"""
 def read_command_namelist(output_dir):
+    
+    """
+    DESCIRPTION:
+    ===========
+
+        Reads the Command namelist in the flexpart output directory
+        and return the content as a dictionary 
+
+    USAGE:
+    =====
+
+        com_dict = read_command_namelist(output_dir)
+
+            output_dir : directory containing FLEXPART output
+            
+            returns: python dictionary 
+    """
     comDict = {}
     lines = open(output_dir + 'COMMAND.namelist', 'r')
     lines.readline()
@@ -43,24 +44,25 @@ def read_command_namelist(output_dir):
         var = var_val[0].strip()
         comDict[var] = values
     return comDict
-"""
-DESCRIPTION:
-===========
-    
-    Reads the release namelist file in the output directory
-    and return the content as a pandas dataframe
 
-USAGE:
-=====
-    
-    df = read_release_namelist(output_dir)
-
-        output_dir: Path to directory with containing the output folder
-    
-        returns: pandas.Dataframe
-
-"""
 def read_release_namelist(output_dir):
+    """
+    DESCRIPTION:
+    ===========
+        
+        Reads the release namelist file in the output directory
+        and return the content as a pandas dataframe
+
+    USAGE:
+    =====
+        
+        df = read_release_namelist(output_dir)
+
+            output_dir: Path to directory with containing the output folder
+        
+            returns: pandas.Dataframe
+
+    """
     relLocactions = pd.DataFrame()
     lines = open(output_dir + 'RELEASES.namelist', 'r')
     lines.readline()
@@ -80,23 +82,24 @@ def read_release_namelist(output_dir):
             relDict[var] = values
     return relLocactions
 
-"""
-DESCRIPTION:
-===========
 
-    Reads the OUTGRID.namelist file in the output directory and  
-    returns the data as python dictionary.
-
-USAGE:
-=====
-
-    outGrid = read_outGrid_namelist(output_dir)
-
-        output_dir: path to FLEXPART output directory.
-        returns: python.dictonary 
- 
-"""
 def read_outGrid_namelist(output_dir):
+    """
+    DESCRIPTION:
+    ===========
+
+        Reads the OUTGRID.namelist file in the output directory and  
+        returns the data as python dictionary.
+
+    USAGE:
+    =====
+
+        outGrid = read_outGrid_namelist(output_dir)
+
+            output_dir: path to FLEXPART output directory.
+            returns: python.dictonary 
+    
+    """
     outGrDict = {}
     lines = open(output_dir + 'OUTGRID.namelist')
     lines.readline()
@@ -163,6 +166,7 @@ def read_trajectories(output_dir, nclusters=5):
 
 
 def read_flex_dust_summary(path_to_textfile):
+    """Read FLEXDUST summary file and return metadata as a python dictionary"""
     text_file = open(path_to_textfile, 'r')
     out_dict = {}
     for line in text_file.readlines():
@@ -184,7 +188,3 @@ def read_flex_dust_summary(path_to_textfile):
                 out_dict[text_in_line[0].strip()] = concat_str[0]
     return out_dict
 
-
-
-if __name__ == "__main__":
-    df = read_trajectories('/opt/uio/flexpart/Compleated_runs/20190306_15/output/')
