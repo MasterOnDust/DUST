@@ -4,11 +4,13 @@ import xarray as xr
 import pandas as pd
 import argparse as ap
 
-def arg_parser(description='FLEXDUST parser'):
+def arg_parser(description='FLEX parser'):
     parser = ap.ArgumentParser(description=description)
-    parser.add_argument('path', help='path to top directory containing flexpart output')
-    parser.add_argument('--outpath', '--op', help='where the output should be stored', default='.')
-    parser.add_argument('--locations', '--loc', help='number of location to apply fuction to', default='ALL')
+    parser.add_argument('path', help='Path to top directory containing output')
+    parser.add_argument('--outpath', '--op', help='Where the output should be stored', default='.')
+    parser.add_argument('--locations', '--loc', help='Number of location to apply fuction to', default='ALL')
+    parser.add_argument('--sdate', '--sd', help='Begining of time slice')
+    parser.add_argument('--edate', '--ed', help='End of time slice')
     
     return parser
 
