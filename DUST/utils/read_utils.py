@@ -69,6 +69,7 @@ def read_release_namelist(output_dir):
     nspec = int(lines.readline().split('=', 1)[1].split(',',1)[0].strip())
     lines.readline()
     lines.readline()
+    relDict = {}
     for line in lines:
         if '&RELEASE' in line:
             relDict = {}

@@ -5,7 +5,7 @@ import numpy as np
 import glob
 import xarray as xr
 import dask
-from .utils.read_output import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
+from .utils.read_utils import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
 from .utils.utils import _fix_time_flexdust
 
 """
@@ -56,13 +56,13 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
         time_step = int(int(nc_files[1].split('/')[-1].split('_')[-1][9])-int(nc_files[0].split('/')[-1].split('_')[-1][9]))
     else:
         time_step = time_step
-    print(time_step)
     load_data_kwargs = dict(dataVars=data_Vars,ldirect=-1)
     load_data_kwargs = {**load_data_kwargs, **dset_kwargs}
-    dsets = [dask.delayed(read_flexpart_output)(path, **load_data_kwargs) for path in nc_files]
-    data_vars_list = map(lambda x: dask.delayed(x[x.varName]),dsets)
-    data_vars_list = dask.compute(data_vars_list)
-    concated = xr.concat(data_vars_list[0],pd.Index(range(0,len(dsets)*time_step,time_step),name='time'))
+    # dsets = [dask.delayed(read_flexpart_output)(path, **load_data_kwargs) for path in nc_files]
+    dsets = [read_flexpart_output(path, **load_data_kwargs) for path in nc_files]
+    data_vars_list = map(lambda x: x[x.varName],dsets)
+    # data_vars_list = dask.compute(data_vars_list)
+    concated = xr.concat(data_vars_list,pd.Index(range(0,len(dsets)*time_step,time_step),name='time'))
     
     with read_flexpart_output(nc_files[0], dataVars=data_Vars) as d0:
         dset_out = d0.assign({data_Vars:concated})
