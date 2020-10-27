@@ -4,6 +4,7 @@ from DUST.read_data import read_multiple_flexpart_outputs
 from DUST.utils.utils import arg_parser, region_slice
 import pandas as pd
 import shutil
+from IPython import embed
 
 if __name__ == "__main__":
     parser = arg_parser('Concatenate FLEXPART simulations')
@@ -35,12 +36,15 @@ if __name__ == "__main__":
     dset = read_multiple_flexpart_outputs(nc_files, chunks={'pointspec':1})
     dset = region_slice(dset, x0, x1, y0, y1)
     spatial_attrs_names = ['outlon0', 'outlon1', 'outlat0', 'outlat1']
-
+    if y1 == None:
+        y1 = len(dset.lat) * dset.outlat0 + dset.outlat0
+    if x1 == None:
+        x1 = len(dset.lon) * dset.outlon0 + dset.outlon0
     # Update attribute if output grid has been sliced
     for key, outloc in zip(spatial_attrs_names, [x0,x1, y0,y1]):
-        if outloc == None:
+        if outloc != None:
             dset.attrs[key] = outloc
-    if heights == None:
+    if heights == None: 
         heights = dset.height.values
     if locations == 'ALL':
         locations = dset.point.values
@@ -49,9 +53,10 @@ if __name__ == "__main__":
     date1 = df.index[-1]
     outdir = ''.join(df['ncfiles'][0].split('_')[:-1]) + '_' + date0 + '_' + date1
     path_to_dir = os.path.join(outpath, outdir)
+    print(path_to_dir)
     try: 
         os.mkdir(path_to_dir)
-    except:
+    except FileExistsError:
         askConfirmation = input("""This folder already exists,
         do you want to delete it? (y/n)""")
         if askConfirmation.strip() == 'y':
@@ -66,10 +71,12 @@ if __name__ == "__main__":
             temp_dset = temp_dset.chunk({'time':10})
             # print(temp_dset.chunks)
             Loc_name = "_".join(location.split(' '))
-            file_name = "{}_{}_{}_{}.nc".format(Loc_name, height, date0, date1) 
+            file_name = "{}_{}_{}_{}.nc".format(Loc_name, int(height), date0, date1) 
             outfile_path = os.path.join(path_to_dir, file_name)
             temp_dset['point'] = temp_dset.point.astype('S{}'.format(len(location)))
             temp_dset['RELCOM'] = temp_dset['RELCOM'].astype('S{}'.format(len(location)))
+            
+       
             temp_dset = temp_dset.compute()
             
             temp_dset.to_netcdf(outfile_path)
