@@ -1,18 +1,52 @@
+
 import numpy as np
 import xarray as xr
 import pandas as pd
-# def select_data(ds):
-#     """
-#     DESCRIPTION
-#     ===========
+import argparse as ap
 
+def arg_parser(description='FLEX parser'):
+    parser = ap.ArgumentParser(description=description)
+    parser.add_argument('path', help='Path to top directory containing output')
+    parser.add_argument('--outpath', '--op', help='Where the output should be stored', default='.')
+    parser.add_argument('--locations', '--loc', help='Number of location to apply fuction to', default='ALL', nargs='+', type=str)
+    parser.add_argument('--sdate', '--sd', help='Begining of time slice')
+    parser.add_argument('--edate', '--ed', help='End of time slice')
     
-#     USAGE:
-#     ======
+    return parser
 
 
 
-#     """
+
+def set_varName(dset, varName):
+    """
+    DESCRIPTION
+    ============
+        Set the attribute which the processing and plotting methods
+        will use to acess the data.
+
+    """
+    dset = dset.assign_attrs({'varName':varName})
+    return dset
+def multiply_area(dset, area=None):
+
+    """
+    DESCRIPTION:
+    ===========
+        Muliply gridded data by it's area, if the data set does not 
+        contain an area variable, the area dataarray need to be provided. 
+
+    """
+    if area == None:
+        try:
+            area = dset.area.values
+        except AttributeError:
+            print('dataset does not contain a datavariable called area')
+
+    with xr.set_options(keep_attributes=True):
+        area_multiplied = dset[dset.varName]*area
+    
+    return area_multiplied
+
 
 
 def region_slice(dset, x0=None, x1=None
@@ -67,94 +101,3 @@ def _fix_time_flexdust(ncfile,**xarray_kwargs):
     dset = dset.drop_dims('time_s')
     return dset
 
-def _gen_log_clevs(dat_min, dat_max):
-    """Creates a logarithmic color scale."""
-
-    if dat_max > 0:
-        dmx = int(np.round(np.log10(dat_max)))
-    else:
-        dmx = 1
-
-    # TODO: What's the default value of dmn?
-    if dat_min > 0:
-        dmn = int(np.round(np.log10(dat_min)))
-    elif dat_min == 0. or np.isnan(dat_min):
-        dmn = dmx - 3
-
-    # create equally spaced range
-    # ERROR: dmn could be uninitialized
-    if dmx == dmn:
-        dmx = dmn + 1
-    clevs = np.logspace(dmn, dmx, 100)
-
-    return clevs
-
-
-def _gen_flexpart_colormap(ctbfile=None, colors=None):
-    """Generate the ast colormap for FLEXPART."""
-
-    from matplotlib.colors import ListedColormap
-    if ctbfile:
-        try:
-            colors = np.loadtxt(ctbfile)
-        except:
-            print("WARNING: cannot load ctbfile. using colors")
-    if colors:
-        name = 'user_colormap'
-    else:
-        # AST Colorset for FLEXPART
-        colors = [
-            1.0000000e+00, 1.0000000e+00, 1.0000000e+00,
-            9.9607843e-01, 9.1372549e-01, 1.0000000e+00,
-            9.8431373e-01, 8.2352941e-01, 1.0000000e+00,
-            9.6470588e-01, 7.1764706e-01, 1.0000000e+00,
-            9.3333333e-01, 6.0000000e-01, 1.0000000e+00,
-            8.9019608e-01, 4.4705882e-01, 1.0000000e+00,
-            8.3137255e-01, 2.0000000e-01, 1.0000000e+00,
-            7.5686275e-01, 0.0000000e+00, 1.0000000e+00,
-            6.6274510e-01, 0.0000000e+00, 1.0000000e+00,
-            5.4901961e-01, 0.0000000e+00, 1.0000000e+00,
-            4.0784314e-01, 0.0000000e+00, 1.0000000e+00,
-            2.4705882e-01, 0.0000000e+00, 1.0000000e+00,
-            7.4509804e-02, 0.0000000e+00, 1.0000000e+00,
-            0.0000000e+00, 2.8235294e-01, 1.0000000e+00,
-            0.0000000e+00, 4.8627451e-01, 1.0000000e+00,
-            0.0000000e+00, 6.3137255e-01, 1.0000000e+00,
-            0.0000000e+00, 7.4509804e-01, 1.0000000e+00,
-            0.0000000e+00, 8.4705882e-01, 1.0000000e+00,
-            0.0000000e+00, 9.3725490e-01, 1.0000000e+00,
-            0.0000000e+00, 1.0000000e+00, 9.7647059e-01,
-            0.0000000e+00, 1.0000000e+00, 8.9411765e-01,
-            0.0000000e+00, 1.0000000e+00, 8.0000000e-01,
-            0.0000000e+00, 1.0000000e+00, 6.9019608e-01,
-            0.0000000e+00, 1.0000000e+00, 5.6470588e-01,
-            0.0000000e+00, 1.0000000e+00, 4.0000000e-01,
-            0.0000000e+00, 1.0000000e+00, 0.0000000e+00,
-            3.9607843e-01, 1.0000000e+00, 0.0000000e+00,
-            5.6470588e-01, 1.0000000e+00, 0.0000000e+00,
-            6.9019608e-01, 1.0000000e+00, 0.0000000e+00,
-            7.9607843e-01, 1.0000000e+00, 0.0000000e+00,
-            8.9411765e-01, 1.0000000e+00, 0.0000000e+00,
-            9.7647059e-01, 1.0000000e+00, 0.0000000e+00,
-            1.0000000e+00, 9.4509804e-01, 0.0000000e+00,
-            1.0000000e+00, 8.7450980e-01, 0.0000000e+00,
-            1.0000000e+00, 7.9215686e-01, 0.0000000e+00,
-            1.0000000e+00, 7.0588235e-01, 0.0000000e+00,
-            1.0000000e+00, 6.0392157e-01, 0.0000000e+00,
-            1.0000000e+00, 4.8235294e-01, 0.0000000e+00,
-            1.0000000e+00, 3.1372549e-01, 0.0000000e+00,
-            1.0000000e+00, 0.0000000e+00, 1.4901961e-01,
-            1.0000000e+00, 0.0000000e+00, 3.3333333e-01,
-            1.0000000e+00, 0.0000000e+00, 4.4705882e-01,
-            1.0000000e+00, 0.0000000e+00, 5.3725490e-01,
-            1.0000000e+00, 0.0000000e+00, 6.1176471e-01,
-            9.7647059e-01, 0.0000000e+00, 6.6666667e-01,
-            8.9411765e-01, 0.0000000e+00, 6.6666667e-01,
-            7.9607843e-01, 0.0000000e+00, 6.3921569e-01,
-            6.9019608e-01, 0.0000000e+00, 5.9215686e-01,
-            5.6470588e-01, 0.0000000e+00, 5.0980392e-01,
-            3.9607843e-01, 0.0000000e+00, 3.8039216e-01]
-        colors = np.reshape(colors, (-1, 3))
-        name = 'flexpart_cmap'
-    cmap = ListedColormap(colors, name)
-    return cmap

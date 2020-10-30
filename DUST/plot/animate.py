@@ -1,98 +1,8 @@
-
-import cartopy as cr
-import cartopy.crs as ccrs
-
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.animation as animation
-from matplotlib.offsetbox import AnchoredText
-
-from DUST.utils.utils import _gen_log_clevs, _gen_flexpart_colormap
-from DUST.utils.maps import base_map_func
-
-import pandas as pd
-
-import numpy as np
-
-from functools import partial
-from collections import namedtuple
-
-def create_info_str(ax,info_dict, loc):
-    info_str = ''
-    for key, item in info_dict.items():
-        info_str = info_str + '{} : {}\n'.format(key,item) 
-
-    anc_text = AnchoredText(info_str, loc=loc ,bbox_transform=ax.transAxes,prop=dict(size=8))
-    ax.add_artist(anc_text)
 
 
-def mpl_base_map_plot_xr(dataset, ax,
-                    plotting_method = 'pcolormesh',
-                    datavar = None,
-                    log = True,
-                    vmin = None,
-                    vmax = None,
-                    mark_receptor = False,
-                    colorbar =True,
-                    **kwargs):
-    """
-    DESCRIPTION
-    ===========
-        Backbone of DUST ploting functionally, should be as general as possible
-        Data should be a 2D xarray.dataarray
-    USAGE:
-    ======
-    """
-    if datavar == None:
-        varName = dataset.varName
-    else:
-        varName = datavar
-    default_options = {'cmap': None}
-
-    default_options.update(kwargs)
-
-    if default_options['cmap'] == None:
-        cmap = _gen_flexpart_colormap()
-        default_options.pop('cmap')
-    else:
-        cmap = default_options.pop('cmap')
-
-    if vmin  ==None and vmax == None:
-        dat_min = dataset[varName].min()
-        dat_max = dataset[varName].max()
-    elif vmin != None and vmax == None:
-        dat_min = vmin
-        dat_max = dataset[varName].max()
-    elif vmin == None and vmax != None:
-        dat_min = dataset[varName].min()
-        dat_max = vmax
-    else:
-        dat_max = vmax
-        dat_min = vmin
-
-    if log:
-        levels = _gen_log_clevs(dat_min, dat_max)
-        norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
-    else:
-        levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
-        norm = None
-
-    if plotting_method == 'pcolormesh':
-         dataset[varName].plot.pcolormesh(ax=ax,
-                norm=norm,
-                cmap = cmap, add_colorbar=colorbar, levels=levels,extend='max',**default_options)
-    elif plotting_method =='contourf':
-        ax.add_artist(dataset[varName].plot.contourf(ax=ax, transform  = ccrs.PlateCarree(),
-                norm=norm,
-                cmap = cmap, levels=levels, add_colorbar=colorbar,extend='max',**default_options))
-    else:
-        raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
-
-
-    if mark_receptor:
-        ax.scatter(dataset.RELLNG, dataset.RELLAT, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
-
-    return ax
 
 
 def make_animation(data ,map_func, title,
@@ -194,4 +104,3 @@ def _animate(d_i, ax, extent):
     date = pd.to_datetime(str(d_i.time.values))
     ax.set_title(date.strftime('%Y%m%d %H%M'))
     fig, ax = mpl_base_map_plot(d_i, ax=ax,colorbar=False, mark_receptor=True)
-    
