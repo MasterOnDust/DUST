@@ -53,7 +53,7 @@ if __name__ == "__main__":
     date1 = df.index[-1]
     outdir = ''.join(df['ncfiles'][0].split('_')[:-1]) + '_' + date0 + '_' + date1
     path_to_dir = os.path.join(outpath, outdir)
-    print(path_to_dir)
+
     try: 
         os.mkdir(path_to_dir)
     except FileExistsError:
@@ -72,10 +72,14 @@ if __name__ == "__main__":
             outfile_path = os.path.join(path_to_dir, file_name)
             temp_dset['point'] = temp_dset.point.astype('S{}'.format(len(location)))
             temp_dset['RELCOM'] = temp_dset['RELCOM'].astype('S{}'.format(len(location)))
-            
-       
+
             temp_dset = temp_dset.compute()
+            shape_dset = temp_dset[temp_dset.varName].shape
+            encoding = {'zlib': True, 'complevel':9,
+                'fletcher32': False,'contiguous': False, 'shuffle':False,
+                'chunksizes':(1,shape_dset[1], shape_dset[2], shape_dset[3]),
+                }
             
-            temp_dset.to_netcdf(outfile_path)
+            temp_dset.to_netcdf(outfile_path,encoding={temp_dset.varName:encoding}, unlimited_dims=['time'])
             temp_dset.close()
 

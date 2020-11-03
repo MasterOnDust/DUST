@@ -62,7 +62,7 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
     prep_func = partial(prepare_flexpart_dataset,dataVars=data_Vars,ldirect=ldirect)
     if isinstance(data_Vars, list)==False:
         data_Vars = [data_Vars]
-    dsets = xr.open_mfdataset(nc_files[:2],concat_dim='time', decode_times=False, data_vars=data_Vars, combine='nested',parallel=True, preprocess=prep_func)
+    dsets = xr.open_mfdataset(nc_files,concat_dim='time', decode_times=False, data_vars=data_Vars, combine='nested',parallel=True, preprocess=prep_func)
     t_index= pd.Index(range(0,len(dsets.time)*time_step,time_step))   
     dsets=dsets.assign_coords(time=t_index) 
     dsets.attrs['source'] = dsets.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
