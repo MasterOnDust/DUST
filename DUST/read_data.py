@@ -1,4 +1,5 @@
 
+from inspect import istraceback
 import os
 import pandas as pd
 import numpy as np
@@ -7,6 +8,7 @@ import xarray as xr
 import dask
 from .utils.read_utils import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
 from .utils.utils import _fix_time_flexdust
+from functools import partial
 
 """
 This file contain functions for preparing data for analysis
@@ -20,7 +22,7 @@ Standard conventions:
 
 xr.set_options(keep_attrs=True)
 
-def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,**dset_kwargs):
+def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,ldirect=-1,**dset_kwargs):
     """
     DESCRIPTION
     ===========
@@ -34,7 +36,7 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
 
         return : python dictionary containing xarray datasets
 
-        todo:: I don't really whats the best way to concatenated netCDF files using xarray
+        todo:: I don't know really whats the best way to concatenated netCDF files using xarray
                 So, currently this fuction feel very slow and not particularly robust, but it might
                 work fine for concatinating few files. At the moment it is better to first run concat_output.py
                 , which create the a concatinated netCDF file of the output with the correct formatting and
@@ -56,21 +58,17 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
         time_step = int(int(nc_files[1].split('/')[-1].split('_')[-1][9])-int(nc_files[0].split('/')[-1].split('_')[-1][9]))
     else:
         time_step = time_step
-    load_data_kwargs = dict(dataVars=data_Vars,ldirect=-1)
-    load_data_kwargs = {**load_data_kwargs, **dset_kwargs}
-    # dsets = [dask.delayed(read_flexpart_output)(path, **load_data_kwargs) for path in nc_files]
-    dsets = [read_flexpart_output(path, **load_data_kwargs) for path in nc_files]
-    data_vars_list = map(lambda x: x[x.varName],dsets)
-    # data_vars_list = dask.compute(data_vars_list)
-    concated = xr.concat(data_vars_list,pd.Index(range(0,len(dsets)*time_step,time_step),name='time'))
-    
-    with read_flexpart_output(nc_files[0], dataVars=data_Vars) as d0:
-        dset_out = d0.assign({data_Vars:concated})
-        
-    dset_out.attrs['source'] = dset_out.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
-    dset_out.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dset_out.iedate + dset_out.ietime).strftime('%Y-%m-%d %H:%M'))
-    dset_out = xr.decode_cf(dset_out, decode_times=True)
-    return dset_out
+
+    prep_func = partial(prepare_flexpart_dataset,dataVars=data_Vars,ldirect=ldirect)
+    if isinstance(data_Vars, list)==False:
+        data_Vars = [data_Vars]
+    dsets = xr.open_mfdataset(nc_files[:2],concat_dim='time', decode_times=False, data_vars=data_Vars, combine='nested',parallel=True, preprocess=prep_func)
+    t_index= pd.Index(range(0,len(dsets.time)*time_step,time_step))   
+    dsets=dsets.assign_coords(time=t_index) 
+    dsets.attrs['source'] = dsets.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
+    dsets.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dsets.iedate + dsets.ietime).strftime('%Y-%m-%d %H:%M'))
+    dsets = xr.decode_cf(dsets, decode_times=True)
+    return dsets
 
 def read_flexpart_metadata(path_output_folder):
     

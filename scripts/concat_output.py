@@ -33,13 +33,13 @@ if __name__ == "__main__":
 
 
     # Load the netCDF files
-    dset = read_multiple_flexpart_outputs(nc_files, chunks={'pointspec':1})
+    dset = read_multiple_flexpart_outputs(nc_files)
     dset = region_slice(dset, x0, x1, y0, y1)
     spatial_attrs_names = ['outlon0', 'outlon1', 'outlat0', 'outlat1']
     if y1 == None:
-        y1 = len(dset.lat) * dset.outlat0 + dset.outlat0
+        y1 = len(dset.lat) * dset.dyout + dset.outlat0
     if x1 == None:
-        x1 = len(dset.lon) * dset.outlon0 + dset.outlon0
+        x1 = len(dset.lon) * dset.dxout + dset.outlon0
     # Update attribute if output grid has been sliced
     for key, outloc in zip(spatial_attrs_names, [x0,x1, y0,y1]):
         if outloc != None:
@@ -67,9 +67,6 @@ if __name__ == "__main__":
         for height in heights:
             temp_dset = dset.sel(point=location, height=height)
             temp_dset = temp_dset.squeeze()
-            # print(temp_dset.chunk())
-            temp_dset = temp_dset.chunk({'time':10})
-            # print(temp_dset.chunks)
             Loc_name = "_".join(location.split(' '))
             file_name = "{}_{}_{}_{}.nc".format(Loc_name, int(height), date0, date1) 
             outfile_path = os.path.join(path_to_dir, file_name)
