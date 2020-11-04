@@ -22,7 +22,8 @@ Standard conventions:
 
 xr.set_options(keep_attrs=True)
 
-def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,ldirect=-1,**dset_kwargs):
+def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,ldirect=-1,
+                                    height=None, location=None,**dset_kwargs):
     """
     DESCRIPTION
     ===========
@@ -62,7 +63,11 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
     prep_func = partial(prepare_flexpart_dataset,dataVars=data_Vars,ldirect=ldirect)
     if isinstance(data_Vars, list)==False:
         data_Vars = [data_Vars]
-    dsets = xr.open_mfdataset(nc_files,concat_dim='time', decode_times=False, data_vars=data_Vars, combine='nested',parallel=True, preprocess=prep_func)
+    dsets = xr.open_mfdataset(nc_files,concat_dim='time', decode_times=False, data_vars=data_Vars, combine='nested',parallel=True, preprocess=prep_func, **dset_kwargs)
+    if height !=None:
+        dsets= dsets.sel(height=height)
+    if location !=None:
+        dsets = dsets.sel(pointspec=location, numpoint=location)
     t_index= pd.Index(range(0,len(dsets.time)*time_step,time_step))   
     dsets=dsets.assign_coords(time=t_index) 
     dsets.attrs['source'] = dsets.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
@@ -282,18 +287,19 @@ def prepare_flexpart_dataset(dset,dataVars='spec001_mr',ldirect=-1):
         dset.btime.attrs['long_name'] = 'time along back trajectory'
         dset = dset.assign_attrs({'varName':dataVars})
 
-        
 
 
-    dset = dset.swap_dims({'numpoint':'pointspec'})
-    relcoms = dset.RELCOM.str.strip().str.decode('utf-8').values
-    dset = dset.assign(RELCOM = xr.DataArray(relcoms, dims=('pointspec'),
-                    coords={'pointspec' : relcoms},
-                  attrs={'long_name':'release point name'}))
-    dset = dset.rename(pointspec='point')
-    dset.point.attrs['long_name'] =  'Name of release location'
+
+    # dset = dset.swap_dims({'numpoint':'pointspec'})
+    # print(dset.RELCOM.str.strip().str.decode('utf-8'))
+    # relcoms = dset.RELCOM.str.strip().str.decode('utf-8')
+    # dset = dset.assign(RELCOM = xr.DataArray(relcoms, dims=('pointspec'),
+    #                 coords={'pointspec' : relcoms},
+    #               attrs={'long_name':'release point name'}))
+    # dset = dset.rename(pointspec='point')
+    # dset.point.attrs['long_name'] =  'Name of release location'
     dset = dset.rename({'longitude':'lon', 'latitude':'lat'})
-    
+
 
     dset = dset.squeeze()    
 
