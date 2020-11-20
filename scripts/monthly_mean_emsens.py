@@ -1,0 +1,54 @@
+import xarray as xr
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import matplotlib.colors as colors
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+from cartopy.mpl.gridliner import Gridliner
+import cartopy as cr
+import cartopy.io.img_tiles as cimgt
+import numpy as np
+from DUST.plot.utils import _gen_flexpart_colormap
+import glob
+import argparse as ap
+
+
+def plot_monthly_mean(paths):
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Sep', 'Oct', 'Nov', 'Dec']
+    fig, axes = plt.subplots(nrows = 3, ncols=4,subplot_kw={'projection':ccrs.PlateCarree()}, figsize=(16,14))
+    for ax, path, month in zip(axes.flatten(), paths, months):
+        ds = xr.open_dataset(path)
+        with xr.set_options(keep_attrs=True):
+            ds_monthly_mean = ds.sum(dim='btime').mean(dim='time')
+        ds.close()
+        ds = ds_monthly_mean
+        ds_plot = xr.where(ds.spec001_mr > 0.1, ds.spec001_mr, np.nan)
+        stamen_terrain = cimgt.Stamen('terrain-background')
+        cmap = _gen_flexpart_colormap()
+        ax.add_image(stamen_terrain, 7)
+
+        ax.add_feature(cr.feature.RIVERS)
+        ax.add_feature(cr.feature.LAKES)
+        im = xr.plot.pcolormesh(ds_plot, norm=colors.LogNorm(0.1, 1e3),cmap=cmap,
+                           extend='max', add_colorbar=False,ax=ax)
+        gl = ax.gridlines(transform = ccrs.PlateCarree(), draw_labels = True, linestyle ='--')
+        gl.top_labels = False
+        gl.right_labels = False
+        gl.xformatter = LONGITUDE_FORMATTER
+        ax.scatter(ds_monthly_mean.RELLNG1, ds_monthly_mean.RELLAT1, marker = '*', 
+                   s=40, transform = ccrs.PlateCarree(), color ='black')
+        gl.yformatter = LATITUDE_FORMATTER
+        ax.set_extent((22.950000000000003, 45.0, -9.75, 15.75))
+        ax.set_title(month)
+    cbar_ax = fig.add_axes([0.92, 0.15, 0.05, 0.7])
+    fig.colorbar(im ,cax=cbar_ax, label='Sensitivity to emissions [S]')
+    
+if __main__=='__name__':
+    parser = ap.ArgumentParser(description='Plot monthly mean maps')
+    parser.add_argument('path', help='Paths to merged output folder')
+    
+    args = parser.parse_args()
+    path = args.path()
+    
+    paths = glob.glob(path, recursive=True)
+    
+    plot_monthly_mean(path)
