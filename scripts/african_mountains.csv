@@ -1,0 +1,99 @@
+,Rank[1],Mountain[2],Height (m)[3],Prominence (m)[4],Range,Country,Parent mountain[6],First ascent[7],lat,lon
+0,1,Kibo (Uhuru Pk),5895,5885.0,Kilimanjaro,Tanzania,,1889,-3.07583,37.3525
+1,2,Mount Kenya (Batian),5199,3825.0,Mount Kenya,Kenya,Kibo,1899,-0.15194,37.30833
+2,3,Mount Kenya (Nelion),5188,,Mount Kenya,Kenya,Batian,1929,-0.15194,37.30833
+3,4,Mawenzi (Hans Meyer Pk),5148,850.0,Kilimanjaro,Tanzania,Kibo,1912,-3.0925,37.45583
+4,5,Ngaliema / Mt Stanley(Margherita Pk),5109,3951.0,Rwenzori,DR CongoUganda,Kibo,1906,0.38556,29.8725
+5,6,Mount Kenya (Lenana),4985,130.0,Mount Kenya,Kenya,Nelion,1899,-0.155,37.3175
+6,7,Ngaliema / Mt Stanley(Savoia Pk),4977,110.0,Rwenzori,Uganda,Margherita,1906,0.37389,29.87611
+7,8,Duwoni / Mt Speke(Vittorio Emanuele Pk),4890,720.0,Rwenzori,Uganda,Stanley,1906,0.39806,29.8925
+8,9,Kiyanja / Mt Baker (Edward Pk),4844,507.0,Rwenzori,Uganda,Stanley,1906,0.36111,29.89278
+9,10,Mount Emin [sv] (Umberto Pk),4798,495.0,Rwenzori,DR Congo,Speke,1906,0.42833,29.9
+10,11,Mount Gessi [sv] (Iolanda Pk),4715,565.0,Rwenzori,Uganda,Emin,1906,0.42194,29.91833
+11,12,Mount Luigi di Savoia [de] (Sella Pk),4627,345.0,Rwenzori,Uganda,Baker,1906,0.33,29.88778
+12,13,Mount Meru (Socialist Pk),4566,3170.0,Mount Meru,Tanzania,Kibo,1904,-3.24417,36.75
+13,14,Ras Dashen,4550,3997.0,Semien Mountains,Ethiopia,Kenya,1841,13.23667,38.3725
+14,15,Karisimbi,4507,3312.0,Virunga Mountains,DR CongoRwanda,Stanley,1903 [8],-1.50611,29.45028
+15,16,Ancua / Ankwa / Weynobar,4462,380.0,Semien Mountains,Ethiopia,Ras Dashen,,13.26917,38.41222
+16,17,Kidis Yared,4453,730.0,Semien Mountains,Ethiopia,Ras Dashen,,13.30028,38.32778
+17,18,Mikeno,4437,1190.0,Virunga Mountains,DR Congo,Karisimbi,1927 [8],-1.46306,29.41972
+18,19,Bwahit,4437,810.0,Semien Mountains,Ethiopia,Kidis Yared,,13.24361,38.2175
+19,20,Portal Peaks (Kihuma),4391,565.0,Rwenzori,Uganda,Gessi,1945,0.405,29.95833
+20,21,Tullu Demtu[9],4377,2527.0,Bale Mountains,Ethiopia,Ras Dashen,,6.82667,39.81917
+21,22,Mount Elgon (Wagagai),4321,2458.0,Mount Elgon,Uganda,Kenya,1911,1.11833,34.52639
+22,23,Mount Elgon (Sudek),4302,150.0,Mount Elgon,KenyaUganda,Wagagai,1890,1.09972,34.57389
+23,24,Amba Farit,4270,2061.0,Kollo Massif,Ethiopia,Bwahit,,10.95056,39.10444
+24,25,Abune Yosef / Guliba Amba,4260,1909.0,Lasta Massif,Ethiopia,Ras Dashen,,12.14111,39.18361
+25,26,Ioll / Yoll,4220,350.0,Kollo Massif,Ethiopia,Amba Farit,,11.00861,39.09611
+26,27,Bada,4195,1605.0,Arsi Mountains,Ethiopia,Tullu Demtu,,7.90944,39.39306
+27,28,Kaka / Kecha / Chiqe,4193,1215.0,Arsi Mountains,Ethiopia,Bada,,7.36389,39.15778
+28,29,Jbel Toubkal,4167,3755.0,Toubkal Atlas,Morocco,Stanley,1923,31.06,7.915
+29,30,Muhavura,4127,1530.0,Virunga Mountains,RwandaUganda,Karisimbi,1898 [8],-1.38278,29.67778
+30,31,Hey / Hay,4125,660.0,Semien Mountains,Ethiopia,Weynobar,,13.31611,38.45139
+31,32,Guna,4120,1510.0,Guna Massif,Ethiopia,Abune Yosef,,11.70722,38.23694
+32,33,Choqa / Choke / Birhan,4100,2225.0,Choqa Mountains,Ethiopia,Bwahit,,10.71417,37.84972
+33,34,Ouanoukrim,4088,420.0,Toubkal Atlas,Morocco,Toubkal,,31.03639,7.94694
+34,35,Chilalo,4071,610.0,Arsi Mountains,Ethiopia,Bada,,7.91528,39.26222
+35,36,Inatye,4070,500.0,Semien Mountains,Ethiopia,Bwahit,,13.26056,38.16444
+36,37,Ighil Mgoun,4068,1904.0,Central High Atlas,Morocco,Toubkal,,31.50833,6.44389
+37,38,Mount Cameroon,4040,3905.0,Cameroon line,Cameroon,Stanley,1861,4.21667,9.17222
+38,39,Weshema / Wasema?,4030,420.0,Bale Mountains,Ethiopia,Tullu Demtu,,6.97083,39.61694
+39,40,Shira [de],4005,,Kilimanjaro,Tanzania,Mawenzi,,-3.0925,37.45583
+40,41,Oldoinyo Lesatima,4001,2081.0,Aberdare Range,Kenya,Mt Kenya,,-0.31111,36.61611
+41,42,Jebel n'Tarourt / Tifnout / Iferouane[10],3996,910.0,Toubkal Atlas,Morocco,Toubkal,,31.08139,7.76444
+42,43,Muggia,3950,500.0,Lasta Massif,Ethiopia,Abune Yosef,,12.07361,39.37806
+43,44,Dubbai,3941,1540.0,Tigray Mountains,Ethiopia,Abune Yosef,,12.85889,39.49778
+44,45,Taska n’Zat[11],3912,460.0,Toubkal Atlas,Morocco,Tarourt,,31.16361,7.64806
+45,46,Aksouâl[12],3903,450.0,Toubkal Atlas,Morocco,Toubkal,,31.11806,7.85833
+46,47,Mount Kinangop,3902,530.0,Aberdare Range,Kenya,Lesatima,,-0.62694,36.70778
+47,48,Cimbia,3900,590.0,Kollo Massif,Ethiopia,Amba Farit,,10.87417,39.26806
+48,49,Anrhemer / Ingehmar,3892,380.0,Toubkal Atlas,Morocco,Aksoual,,31.15139,7.79333
+49,50,Ieciuol ?,3840,560.0,Kollo Massif,Ethiopia,Cimbia,,10.88389,39.46944
+50,51,Kawa / Caua / Lajo,3830,475.0,Bale Mountains,Ethiopia,Weshema,,7.21722,39.64694
+51,52,Pt 3820,3820,450.0,Kollo Massif,Ethiopia,Cimbia,,10.91528,39.3375
+52,53,Jbel Tignousti,3819,930.0,Central High Atlas,Morocco,Mgoun,,31.49778,6.71667
+53,54,Filfo / Encuolo,3805,770.0,Arsi Mountains,Ethiopia,Bada,,7.36889,39.35528
+54,55,Kosso Amba,3805,530.0,Lasta Massif,Ethiopia,Pt 3950,,11.79222,39.43722
+55,56,Jbel Ghat,3781,470.0,Central High Atlas,Morocco,Tignousti,,31.52139,6.74167
+56,57,Baylamtu / Gavsigivla,3777,1120.0,Lasta Massif,Ethiopia,Abune Yosef,,12.35278,39.06333
+57,58,Ouaougoulzat [fr],3763,860.0,Central High Atlas,Morocco,Irhil MGoun,,31.65472,6.25556
+58,59,Somkaru,3760,530.0,Bale Mountains,Ethiopia,Tullu Demtu,,6.82361,39.28222
+59,60,Abieri,3750,780.0,Semien Mountains,Ethiopia,Ras Dashen,,13.52361,38.35611
+60,61,Arin Ayachi,3747,1400.0,East High Atlas,Morocco,Ouaougoulzat,,32.47667,4.92694
+61,62,Teide,3718,3718.0,Tenerife,Spain (Canary Islands),Island high point,1582,28.2725,16.64222
+62,63,Visoke / Bisoke,3711,585.0,Virunga Mountains,DR CongoRwanda,Karisimbi,1908 [8],-1.45806,29.48528
+63,64,Sarenga,3700,1160.0,Tigray Mountains,Ethiopia,Dubbai,,12.67,39.49583
+64,65,Woti / Uoti,3700,1050.0,Eastern Escarpment,Ethiopia,Pt 3840,,9.72667,39.72944
+65,66,Pt 3700 (Kulsa?),3700,490.0,Arsi Mountains,Ethiopia,Kecha,,7.41028,39.01889
+66,67,Mount Loolmalassin,3682,2040.0,Crater Highlands,Tanzania,Meru,,-3.04889,35.82083
+67,68,Biala?,3680,870.0,Lasta Massif,Ethiopia,Baylamtu,,12.45472,39.00333
+68,69,Azurki / Azourki,3677,790.0,Central High Atlas,Morocco,Ouaougoulzat,,31.74667,6.26111
+69,70,Pt 3645,3645,910.0,Lasta Massif,Ethiopia,Koso Amba,,11.50056,39.53639
+70,71,Sabyinyo,3634,1010.0,Virunga Mountains,RwandaDR CongoUganda,Karisimbi,1907  [8],-1.3875,29.59167
+71,72,Mount Gurage / Guraghe,3620,1400.0,Gurage Mountains,Ethiopia,Uoti,,8.27694,38.36528
+72,73,Angour,3616,444.0,Toubkal Atlas,Morocco,Anrhemer,,31.17472,7.82528
+73,74,Jbel Igdat,3615,1609.0,West High Atlas,Morocco,Toubkal,1888,30.96083,8.43056
+74,75,Jbel n'Anghomar,3609,1420.0,Central High Atlas,Morocco,Ighil MGoun,,31.33639,6.9975
+75,76,Yegura / Amba Moka,3605,420.0,Lasta Massif,Ethiopia,Pt 3645,,11.49583,39.46083
+76,77,Pt 3600 (Kitir?),3600,870.0,Eastern Escarpment,Ethiopia,Uoti,,10.63944,39.69806
+77,78,Pt 3600,3600,610.0,Lasta Massif,Ethiopia,Koso Amba,,11.64444,39.54778
+78,79,Bar Meda high point,3580,520.0,Eastern Escarpment,Ethiopia,Pt 3600 (Kitir ?),,10.37444,39.80417
+79,80,Jbel Erdouz,3579,690.0,West High Atlas,Morocco,Igdat,,31.04611,8.40694
+80,81,Mount Gugu,3570,940.0,Mount Gugu,Ethiopia,Bada,,8.205,39.96667
+81,82,Gesh Megal (?),3570,520.0,Gurage Mountains,Ethiopia,Gurage,,8.38778,38.39139
+82,83,Gughe,3568,2013.0,Balta Mountains,Ethiopia,Gurage,,6.20361,37.38917
+83,84,Megezez,3565,690.0,Eastern Escarpment,Ethiopia,Uoti,,9.28639,39.53333
+84,85,Pt 3555,3555,475.0,Lasta Massif,Ethiopia,Pt 3645,,11.55806,39.57
+85,86,Jbel Tinergwet,3551,880.0,West High Atlas,Morocco,Igdat,,30.81278,8.82806
+86,87,Amba Alagi[13],3550,820.0,Tigray Mountains,Ethiopia,Dubbai,,12.96222,39.57028
+87,88,Chemnirot (Kamelogon Pk)[14],3530,1510.0,Cherangani Hills,Kenya,Elgon,,1.26944,35.49722
+88,89,Gara Guda /Kara Gada,3530,900.0,Salale Mountains,Ethiopia,Megezez,,9.80861,38.63583
+89,90,Amonewas[15],3530,870.0,Choqa Mountains,Ethiopia,Choke,,10.97028,38.26278
+90,91,Amedamit[16],3530,760.0,Choqa Mountains,Ethiopia,Choke,,11.12472,37.35639
+91,92,Igoudamene,3519,550.0,Central High Atlas,Morocco,Mgoun,,31.58556,6.42972
+92,93,Abuye Meda[17],3505,230.0,Eastern Escarpment,Ethiopia,Bar Meda high point,,10.49278,39.76028
+93,94,Thabana Ntlenyana,3482,2390.0,Drakensberg,Lesotho,,,-29.46278,29.26639
+94,95,Mont Mohi [fr],3480,1592.0,Mitumba Mountains[18],DR Congo,Karisimbi,,-2.95333,28.78444
+95,96,Gahinga,3474,425.0,Virunga Mountains,UgandaRwanda,Muhavura,1906  [8],-1.38667,29.64639
+96,97,Nyiragongo,3470,1440.0,Virunga Mountains,DR Congo,Karisimbi,1894  [8],-1.51778,29.25361
+97,98,Mount Hanang,3420,2050.0,Crater Highlands,Tanzania,Hanang,,-4.435,35.4
