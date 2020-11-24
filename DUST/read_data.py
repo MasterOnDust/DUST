@@ -201,7 +201,7 @@ def read_flexpart_trajectories(path_to_top_directory, nclusters=5):
     
     locations = load_trajectories(paths[0])[0]
     trajectories = [load_trajectories(path, nclusters)[0] for path in paths]
-    return pd.concat(trajectories, ignore_index=True), locations
+    return pd.concat(trajectories, axis=0,ignore_index=True), locations
 
 def read_flexdust_output(path_output, **xarray_kwargs):
     """

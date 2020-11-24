@@ -160,7 +160,6 @@ def plot_emission_sensitivity(dset,
                                 data_var,
                                 ax=None,
                                 plotting_method = 'pcolormesh',
-                                map_func = None,
                                 info_loc = 'lower right',
                                 log = True,
                                 vmin = None,
@@ -201,7 +200,6 @@ def plot_emission_sensitivity(dset,
     if ax == None:
         ax = plt.axes(projection=ccrs.PlateCarree)
 
-    if map_func == None:
 
 
     ax = mpl_base_map_plot_xr(dset, ax=ax,
@@ -284,7 +282,7 @@ def mpl_base_map_plot_xr(dataset, ax,
 
 
     if mark_receptor:
-        ax.scatter(dataset.RELLNG, dataset.RELLAT, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
+        ax.scatter(dataset.RELLNG1, dataset.RELLAT1, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
 
     return ax
 
