@@ -277,7 +277,7 @@ def prepare_flexpart_dataset(dset,dataVars='spec001_mr',ldirect=-1):
     if ldirect == -1:
         
         usefull = ['RELCOM', 'RELLNG1', 'RELLNG2', 'RELLAT1','RELLAT2', 'RELZZ1', 'RELZZ2'
-          ,'RELKINDZ', 'RELSTART', 'RELEND', 'RELPART','ORO']
+          ,'RELKINDZ', 'RELSTART', 'RELEND', 'RELPART']
         usefull.append(dataVars)
         not_usefull = [v for v in dset.data_vars if v not in usefull]
         dset = dset.drop(not_usefull)

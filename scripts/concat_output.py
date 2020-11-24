@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 
-from dask.distributed import Client 
+from dask.distributed import Client, LocalCluster 
 from DUST.read_data import read_multiple_flexpart_outputs
 from DUST.utils.utils import arg_parser, region_slice
 import pandas as pd
@@ -49,8 +49,8 @@ if __name__ == "__main__":
         else:
             sys.exit()
 
-
-    client = Client()
+    cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='64GB')
+    client = Client(cluster)
     # Load the netCDF files
     dset = read_multiple_flexpart_outputs(nc_files, height=heights, location=locations)
     dset[dset.varName] = region_slice(dset[dset.varName], x0, x1, y0, y1)
