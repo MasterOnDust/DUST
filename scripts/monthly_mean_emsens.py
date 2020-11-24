@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import xarray as xr
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -12,8 +14,8 @@ import glob
 import argparse as ap
 
 
-def plot_monthly_mean(paths):
-    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Sep', 'Oct', 'Nov', 'Dec']
+def plot_monthly_mean(paths, fname):
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul','Aug','Sep', 'Oct', 'Nov', 'Dec']
     fig, axes = plt.subplots(nrows = 3, ncols=4,subplot_kw={'projection':ccrs.PlateCarree()}, figsize=(16,14))
     for ax, path, month in zip(axes.flatten(), paths, months):
         ds = xr.open_dataset(path)
@@ -37,18 +39,20 @@ def plot_monthly_mean(paths):
         ax.scatter(ds_monthly_mean.RELLNG1, ds_monthly_mean.RELLAT1, marker = '*', 
                    s=40, transform = ccrs.PlateCarree(), color ='black')
         gl.yformatter = LATITUDE_FORMATTER
-        ax.set_extent((22.950000000000003, 45.0, -9.75, 15.75))
+        ax.set_extent((22.950000000000003, 45.0, -8.75, 15.75))
         ax.set_title(month)
     cbar_ax = fig.add_axes([0.92, 0.15, 0.05, 0.7])
     fig.colorbar(im ,cax=cbar_ax, label='Sensitivity to emissions [S]')
-    
-if __main__=='__name__':
+    plt.savefig('figs/{}.png'.format(fname), dpi=300, bbox_inches='tight')
+if __name__=="__main__":
     parser = ap.ArgumentParser(description='Plot monthly mean maps')
-    parser.add_argument('path', help='Paths to merged output folder')
+    parser.add_argument('paths', nargs='+', help='Paths to merged output folder')
     
     args = parser.parse_args()
-    path = args.path()
+    paths = args.paths
     
-    paths = glob.glob(path, recursive=True)
-    
-    plot_monthly_mean(path)
+    #paths = glob.glob(path, recursive=True)
+    fname = paths[0].split('/')[-1].split('_')[0]
+    paths.sort()
+    print(fname)
+    plot_monthly_mean(paths, fname)
