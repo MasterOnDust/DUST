@@ -137,7 +137,7 @@ def read_flexpart_metadata(path_output_folder):
     else:
         return outs
 
-def load_trajectories(path, nclusters=5):
+def load_trajectories(path, nclusters=5, skip_rows=24):
     cluster_list = []
     cluster_names = ['xcluster', 'ycluster', 'zcluster', 'fcluster',
     'rmscluster']
@@ -150,8 +150,20 @@ def load_trajectories(path, nclusters=5):
         trajecFile.readline()
         nlocs = int(trajecFile.readline().strip())
         lines = [next(trajecFile) for i in range(nlocs*3)]
-        locs = {i+1:line.strip() for i,line in enumerate(lines[2::3])}
+        locs = [line.strip().split(' ')[0] for i,line in enumerate(lines[2::3])]
+        locs_dict = {i+1:line.strip() for i,line in enumerate(lines[2::3])}
             
+
+
+
+    intial_data = [line1.strip() +  line2.strip() for line1, line2 in zip(lines[::3],lines[1::3])]
+
+    inital_data = [line.split() for line in intial_data]
+
+    df_head = pd.DataFrame(np.array(inital_data)[:,1:4])
+    df_head = df_head.rename(columns={1:'time', 2: 'lon', 3:'lat'})
+
+    df_head['locations'] = locs
         
     s_time = pd.to_datetime(header[0] + header[1])
 
@@ -164,17 +176,17 @@ def load_trajectories(path, nclusters=5):
     
     
     df = pd.read_csv(path, sep='\s+',
-                    skiprows=lambda x: x <24, names=cols)
+                    skiprows=lambda x: x <skip_rows, names=cols)
     
-    for key, location in locs.items():
+    for key, location in locs_dict.items():
         df.loc[df.loc[:,'location']==key, 'location'] = location
     
     df.loc[:,['location']] = df.loc[:,['location']].astype('category')
 #     time_p_rel = s_time + pd.to_timedelta(sec_p_rel, unit = 's')
     df['start time'] = s_time
-    return df, locs
+    return df, df_head
 
-def read_flexpart_trajectories(path_to_top_directory, nclusters=5):
+def read_flexpart_trajectories(path_to_top_directory, nclusters=5, skip_rows=24):
     """
     DESCRIPTION
     ===========
@@ -199,8 +211,8 @@ def read_flexpart_trajectories(path_to_top_directory, nclusters=5):
         except FileNotFoundError:
             paths = glob.glob(path_to_top_directory + "**/trajectories.txt", recursive=True) #recursively find FLEXPART output files
     
-    locations = load_trajectories(paths[0])[0]
-    trajectories = [load_trajectories(path, nclusters)[0] for path in paths]
+    locations = load_trajectories(paths[0], skip_rows=skip_rows)[1]
+    trajectories = [load_trajectories(path, nclusters, skip_rows=skip_rows)[0] for path in paths]
     return pd.concat(trajectories, axis=0,ignore_index=True), locations
 
 def read_flexdust_output(path_output, **xarray_kwargs):
