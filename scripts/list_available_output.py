@@ -4,8 +4,9 @@ import glob
 import os
 import pandas as pd
 import argparse as ap 
-import f90nml 
 
+import f90nml 
+from IPython import embed
 if __name__ == "__main__":
     parser = ap.ArgumentParser(description='''Find all available output 
                                 files in a given top directory and write relative paths to file''')
@@ -27,7 +28,7 @@ if __name__ == "__main__":
         ncfiles = [ncfile.split('/')[-1] for ncfile in outfiles]
         ncfiles.sort()
         outpaths.sort()
-        date_index = [pd.to_datetime(p_name[:11],format='%Y%m%d_%H') for p_name in outpaths]
+        date_index = [pd.to_datetime(date.split('_')[-1].split('.')[0]) for date in ncfiles]
         df = pd.DataFrame(data={'dir_paths':outpaths,'ncfiles':ncfiles}, index=date_index)
 
         df.to_csv('AVAILABLE_OUTPUT', date_format='%Y%m%d-%H')
