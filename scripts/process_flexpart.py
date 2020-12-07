@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-
+import numpy as np
 import xarray as xr
 import sys
 import argparse as ap
 import DUST
 import os
 import time
-
-
+#from dask.distributed import Client, LocalCluster
+#import dask
 """
 AUTHOR
 ======
@@ -37,8 +37,10 @@ if __name__ == "__main__":
     x1 = args.x1
     y1 = args.y1
     y0 = args.y0
-
-
+    
+    #cluster=LocalCluster(n_workers=4, threads_per_worker=1, memory_limit='8GB')
+    #client=Client(cluster)
+    
     ds = xr.open_dataset(pathflexpart,chunks={'pointspec':1})
 
     ds = ds.drop_vars(['WD_spec001', 'DD_spec001'])
@@ -73,8 +75,7 @@ if __name__ == "__main__":
     ds = ds.sel(lon=slice(x0,x1), lat=slice(y0,y1))
 
     # Read flexdust output
-
-    flexdust_ds = DUST.read_flexdust_output(pathflexdust)
+    flexdust_ds = DUST.read_flexdust_output(pathflexdust)['dset']
     flexdust_ds = flexdust_ds.sel(time=ds.time)
     flexdust_ds = flexdust_ds.sel(lon=slice(70,120), lat=slice(25,50))
 
@@ -82,11 +83,13 @@ if __name__ == "__main__":
     flexdust_ds = flexdust_ds.interp_like(ds)
 
     # create output DataArray
-    out_data = xr.DataArray(coords={'pointspec':ds.pointspec,'lon':ds['spec001_mr'].lon, 
+    print('creating output array')
+    out_data = xr.DataArray(np.zeros((ds['spec001_mr'].shape), dtype=np.float32),
+            coords={'pointspec':ds.pointspec,'lon':ds['spec001_mr'].lon, 
                             'lat':ds['spec001_mr'].lat, 'time':ds.time}, 
                         dims={'pointspec':ds.pointspec,'time':ds.time,
                         'lat':ds.lat,'lon':ds.lon}, attrs=ds.spec001_mr.attrs)
-    
+    print('created output array')
     out_data.attrs['units'] = field_unit
     spec_com = ds.spec001_mr.attrs['long_name']
     out_data.attrs['spec_comment'] = spec_com
@@ -95,26 +98,32 @@ if __name__ == "__main__":
     
     # Fill output Data arrary
     scale_factor = (1/height)*1000
-
+    #result=[]
     for i in range(len(ds.pointspec)):
+        #result.append(dask.delayed(ds.spec001_mr.sel(pointspec=i) * flexdust_ds.Emission * scale_factor))
         out_data[i] = ds.spec001_mr.sel(pointspec=i) * flexdust_ds.Emission * scale_factor
-    
-    terminal_input = ' '.join(sys.argv)
+    print('finish emsfield*sensitvity')
 
-    out_ds = xr.Dataset({f_name : out_data, 'surface_sensitvity':ds.spec001_mr, 'RELEND':ds.RELEND, 'RELSTART':ds.RELSTART, 
+    #out_data[:] = dask.compute(*result)
+    terminal_input = ' '.join(sys.argv)
+    
+    out_ds = xr.Dataset({f_name : out_data, 'surface_sensitivity' : ds['spec001_mr'] ,'RELEND':ds.RELEND, 'RELSTART':ds.RELSTART, 
                         'ORO':ds.ORO, 'RELPART':ds.RELPART.sum(), 'RELZZ1':ds.RELZZ1[0],
                         'RELZZ2': ds.RELZZ2[0], 'RELLAT':ds.RELLAT1[0], 'RELLNG':ds.RELLNG1[0]
-                        ,'RELCOM':ds.RELCOM.astype('U35', copy=False)}, attrs=ds.attrs)
+                        ,'RELCOM':ds['RELCOM'].astype('U35', copy=False)}, attrs=ds.attrs)
+    #h=hpy()
+    #print(h.heap())
+    flexdust_ds.close()
     ds.close()
     receptor_name = str(out_ds.RELCOM[0].values).strip().split(' ')[1]
 
     out_ds.attrs['title'] = 'FLEXPART/FLEXDUST model output'
     out_ds.attrs['references'] = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482'
-    out_ds.attrs['history'] = out_ds.attrs['history'] + '{} processed by {}'.format(time.ctime(time.time()),terminal_input)
+    out_ds.attrs['history'] = out_ds.attrs['history'] + ', {} processed by {}'.format(time.ctime(time.time()),terminal_input)
     out_ds.attrs['varName'] = f_name
     shape_dset = out_ds[f_name].shape
     encoding = {'zlib':True, 'complevel':9, 'chunksizes' : (1,10, shape_dset[2], shape_dset[3]),
     'fletcher32' : False,'contiguous': False, 'shuffle' : False}
     outFile_name = os.path.join(outpath,f_name + '_' + receptor_name + '_' + spec_com + '_' + out_ds.iedate +'-'+ out_ds.ibdate + '.nc')
-    
-    out_ds.to_netcdf(outFile_name, encoding={f_name:encoding, 'surface_sensitvity':encoding})
+    print('writing to {}'.format(outFile_name))
+    out_ds.to_netcdf(outFile_name, encoding={f_name:encoding, 'surface_sensitivity':encoding})
