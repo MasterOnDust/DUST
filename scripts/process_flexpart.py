@@ -40,6 +40,7 @@ if __name__ == "__main__":
     y1 = args.y1
     y0 = args.y0
     
+    print(outpath)
     #cluster=LocalCluster(n_workers=4, threads_per_worker=1, memory_limit='8GB')
     #client=Client(cluster)
     
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     lout_step = abs(ds.attrs['loutstep'])
     btime_size = int(ds['LAGE']/lout_step*1e-9)
     lout_step_h = int(lout_step/(60*60))
-    btime_array = np.arange(lout_step_h,btime_size*lout_step_h,lout_step_h)
+    btime_array = -np.arange(lout_step_h,btime_size*lout_step_h+lout_step_h,lout_step_h)
 
     # Create new time forward time dimmension
     t0 = pd.to_datetime(ds.ibdate+ds.ibtime) + ds['LAGE'].values
@@ -108,8 +109,8 @@ if __name__ == "__main__":
 
     # create output DataArray
     print('creating output array')
-    out_data = xr.DataArray(np.zeros((len(ds['pointspec']),btime_size,len(ds['lon']),len(ds['lat'])),dtype=np.float32),
-        dims=['time', 'btime', 'lon', 'lat'],
+    out_data = xr.DataArray(np.zeros((len(ds['pointspec']),btime_size,len(ds['lat']),len(ds['lon'])),dtype=np.float32),
+        dims=['time', 'btime', 'lat', 'lon'],
         coords={'time':time_var,
         'btime': ('btime',btime_array, dict(
             long_name='time along back trajectory',
@@ -134,12 +135,14 @@ if __name__ == "__main__":
     last_btime = out_data.btime[-1]
     first_btime =out_data.btime[0]
     time_units = out_data.time.units
-    for i in range(len(ds.out_data.time)):
+    for i in range(len(out_data.time)):
         date0 = num2date(out_data[i].time + first_btime, time_units).strftime('%Y%m%d%H%M')
         date1 = num2date(out_data[i].time + last_btime, time_units).strftime('%Y%m%d%H%M')
-        temp_data = ds['spec001_mr'].sel(time=slice(date0, date1), pointspec=i).values
-        out_data[i] = temp_data*flexdust_ds['Emission'].sel(time=temp_data.time)*scale_factor
-        surface_sensitvity[i] = temp_data
+        temp_data = ds['spec001_mr'].sel(time=slice(date0, date1), pointspec=i)
+        emission_field = flexdust_ds['Emission'].sel(time=temp_data.time)
+        #print(temp_data.time[0], emission_field.time[0])
+        out_data[i] = temp_data.values*emission_field.values*scale_factor
+        surface_sensitvity[i] = temp_data.values
 
     print('finish emsfield*sensitvity')
 
@@ -161,6 +164,6 @@ if __name__ == "__main__":
     shape_dset = out_ds[f_name].shape
     encoding = {'zlib':True, 'complevel':9, 'chunksizes' : (1,10, shape_dset[2], shape_dset[3]),
     'fletcher32' : False,'contiguous': False, 'shuffle' : False}
-    outFile_name = os.path.join(outpath,f_name + '_' + receptor_name + '_' + spec_com + '_' + out_ds.iedate +'-'+ out_ds.ibdate + '.nc')
+    outFile_name = os.path.join(outpath,f_name + '_' + receptor_name + '_' + spec_com + '_' + out_ds.ibdate +'-'+ out_ds.iedate + '.nc')
     print('writing to {}'.format(outFile_name))
     out_ds.to_netcdf(outFile_name, encoding={f_name:encoding, 'surface_sensitivity':encoding})
