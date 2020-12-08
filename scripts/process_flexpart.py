@@ -115,8 +115,8 @@ if __name__ == "__main__":
         'btime': ('btime',btime_array, dict(
             long_name='time along back trajectory',
             units='hours')), 
-        'lon':('lon',ds['spec001_mr'].lon), 
-        'lat':('lat',ds['spec001_mr'].lat)},
+        'lon':('lon',ds['spec001_mr'].lon, ds.lon.attrs), 
+        'lat':('lat',ds['spec001_mr'].lat, ds.lat.attrs)},
         attrs=dict(
             units=field_unit,
             spec_com=ds.spec001_mr.attrs['long_name'],
@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     out_ds.attrs['title'] = 'FLEXPART/FLEXDUST model output'
     out_ds.attrs['references'] = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482'
-    out_ds.attrs['history'] = out_ds.attrs['history'] + ', {} processed by {}'.format(time.ctime(time.time()),terminal_input)
+    out_ds.attrs['history'] = '{} processed by {}, '.format(time.ctime(time.time()),terminal_input) + out_ds.attrs['history']
     out_ds.attrs['varName'] = f_name
     shape_dset = out_ds[f_name].shape
     encoding = {'zlib':True, 'complevel':9, 'chunksizes' : (1,10, shape_dset[2], shape_dset[3]),
