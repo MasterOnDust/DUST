@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from netCDF4 import Dataset
 from DUST import read_multiple_flexpart_output
 import time
