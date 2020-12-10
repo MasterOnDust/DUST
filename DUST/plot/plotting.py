@@ -5,169 +5,67 @@ import cartopy.crs as ccrs
 from matplotlib.offsetbox import AnchoredText
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.dates as mdates
 
 from .utils import _gen_log_clevs, _gen_flexpart_colormap
-from .maps import base_map_func
-
-import pandas as pd
 
 import numpy as np
+import xarray as xr
 
-from functools import partial
-from collections import namedtuple
 
 
 mpl.rcParams['axes.titlesize'] = 'x-large'
 mpl.rcParams['axes.labelsize'] = 'large'
 mpl.rcParams['xtick.labelsize'] = 'medium'
 mpl.rcParams['ytick.labelsize'] = 'medium'
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#825f87", "#5f34e7", "#d3494e", "#464196", "#017371", "#ff9a8a", "#fa2a55", "#13eac9"])
 
-def plot_emission_time_series(self, time_slice = None,
-                                    x_date_format = None,
+def plot_emission_time_series(dset,
                                     title=None,
-                                    unit='kg',
-                                    subtitle = None,
-                                    fig= None,
                                     ax = None,
-                                    mark_days = None,
-                                    plot_kwargs = {},
-                                            **fig_kwargs):
-    if time_slice != None:
-        _obj = self._obj.sel(time=time_slice)
+                                    varName = None,
+                                    auto_locator =False,
+                                    **plot_kwargs):
+
+    if isinstance(dset, xr.DataArray):
+        dataarray=dset
     else:
-        _obj = self._obj
-    print(_obj.dims)
-    time = _obj.time
+        if varName == None:
+            dataarray=dset[dset.varName]
+        else:
+            datarray=dset[varName]
+    if ax == None:
+        ax = plt.axes()
 
-    if unit =='kg':
-        emissions = self._integrate_area(unit, _obj)
-        units = 'kg'
-    elif unit =='kg/m2':
-        emissions = self._integrate_area(unit, obj)
-        units = '$\mathrm{kg}\; \mathrm{m}^{-2}$'
+    xr.plot.plot(dataarray,ax=ax, **plot_kwargs)
+    if title:
+        title = ax.set_title(title)
+    if auto_locator:
+        locator = mdates.AutoDateLocator(minticks=5, maxticks=12)
 
-    else:
-        raise(ValueError("method` param {} is not a valid one. Try 'kg' or kg/m2".format(unit)))
-    if fig == None and ax==None:
-        fig, ax = plt.subplots(1,1,**fig_kwargs)
-    elif ax==None:
-        ax = fig.add_axes(ax)
-    else:
-        raise(ValueError('matplotlib.axes has to have a corresponding figure'))
-
-    ax.plot(time,emissions, **plot_kwargs)
-    date0 = np.datetime_as_string(time[0].values, unit='D')
-    date_end = np.datetime_as_string(time[-1].values, unit='D')
-
-    if title == None:
-        pass
-    elif title =='default':
-        plt.suptitle('Total dust emissions {} - {}'.format(date0,date_end), fontsize = 18)
-    else:
-        plt.suptitle(title + ' {} - {}'.format(date0,date_end), fontsize = 18)
-
-    if subtitle == 'default':
-        lon0 = _obj.lon.min().values; lon1 = _obj.lon.max().values
-        lat0 = _obj.lat.min().values; lat1 = _obj.lat.max().values
-        plt.title('lon0 = {:.2f} , lat0 = {:.2f}, lon1 = {:.2f}, lat1 = {:.2f}'.format(lon0,lat0,lon1,lat1),fontsize = 12)
-    elif subtitle == None:
-        pass
-    else:
-        plt.title(subtitle, fontsize = 12)
-    ax.set_ylabel(units)
-
-    locator = mdates.AutoDateLocator(minticks=5, maxticks=12)
-
-    formatter = mdates.ConciseDateFormatter(locator)
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
 
     ax.grid(linestyle='-')
 
-
-def plot_emission_map(self, ax=None,
-                        plotting_method='pcolormesh',
-                        reduce='sum',
-                        freq=None,
-                        fig=None,
-                        cmap =None,
-                        vmin=None,
-                        vmax=None,
-                        title=None,
-                        log=False,
-                        time_slice = None,
-                        mapfunc = None,
-                        unit='kg',**fig_kwargs):
-
-
-    if time_slice != None:
-        _obj = self._obj.sel(time=time_slice)
-    else:
-        _obj = self._obj
-
-    if fig == None and ax==None:
-        fig, ax = plt.subplots(1,1, subplot_kw=dict(projection=ccrs.PlateCarree()),**fig_kwargs)
-
-    elif ax==None:
-        ax = fig.add_axes(ax)
-
-    elif fig==None and ax != None:
-        raise(ValueError('matplotlib.axes has to have a corresponding figure'))
-    else:
-        pass
-
-    if freq == None:
-        pass
-    else:
-        _obj = self.resample_data(freq=freq, method='sum', dset = _obj)
-
-    if 'time' not in _obj.dims:
-        data = _obj.Emission
-        date0 = pd.to_datetime(_obj.time.values).strftime('%y%m%d %H')
-        date_end = pd.to_datetime(_obj.time.values).strftime('%y%m%d %H')
-    elif reduce == 'mean':
-        data = _obj.Emission.mean(dim='time', keep_attrs=True)
-        date0 = pd.to_datetime(_obj.time.values[0]).strftime('%y%m%d %H')
-        date_end = pd.to_datetime(_obj.time.values[-1]).strftime('%y%m%d %H')
-    elif reduce == 'sum':
-        data = _obj.Emission.sum(dim='time', keep_attrs=True)
-        date0 = np.datetime_as_string(_obj.time.values[0], unit='D')
-        date_end = np.datetime_as_string(_obj.time.values[-1], unit='D')
-    else:
-        raise ValueError("`reduce` param '%s' is not a valid one." % unit)
-
-    if unit == 'kg':
-        data = data*_obj.area.values[0]
-        data = data.assign_attrs(units = '$\mathrm{kg}$')
-    elif unit== 'kg/m2':
-        data = data
-        data = data.assign_attrs(units ='$\mathrm{kg}\; \mathrm{m}^{-2}$')
-    else:
-        raise ValueError("`unit` param '%s' is not a valid one." % unit)
-    plt.title('start time: {} - end time {}'.format(date0, date_end), fontsize=12)
-
-    if title == None:
-        plt.suptitle('FLEXDUST estimated accumulated emissions',y=0.9, fontsize=18)
-    else:
-        plt.suptitle(title, fontsize=18)
-    if mapfunc != None:
-        ax = mapfunc(ax)
-
-    fig, ax = mpl_base_map_plot(data,ax, fig,plotting_method,log=log, cmap=cmap, vmin=vmin, vmax=vmax)
-    return fig, ax
-
+    return ax 
 def plot_emission_sensitivity(dset,
-                                data_var,
+                                var_Name=None,
                                 ax=None,
                                 plotting_method = 'pcolormesh',
+                                mark_receptor = True,
                                 info_loc = 'lower right',
                                 log = True,
                                 vmin = None,
                                 vmax = None,
                                 title=None,
-                                extent = None):
+                                projection =ccrs.PlateCarree(),
+                                extent = None,
+                                info_dict=None,
+                                **kwargs):
     """
-    Description
+    DESCRIPTION
     ===========
 
         Main function for plotting flexpart emission sensitivity. Require a 2D data array 
@@ -176,10 +74,8 @@ def plot_emission_sensitivity(dset,
     USAGE
     =====
 
-        fig, ax = dset.fp.plot_emssion_sensitivity(height)
+        fig, ax = dset.fp.plot_emssion_sensitivity(dset)
 
-        required argument:
-            height : height of flexpart output level
         optional arguments:
             point           : if xarray.dataset contains several receptor points
             plotting_method : either 'pcolormesh' or 'contourf' (default='pcolormesh')
@@ -190,22 +86,46 @@ def plot_emission_sensitivity(dset,
             title           : plot title, if None default title is created.
             extent          : extent of the output map,if not already set, default
                                 [70,120, 25, 50]
-            btimeRange      : How far back in time do you want to at emission sensitivity,
-                                using slice('startdate', 'enddate')
-            timeRange       : Forward time slice, only applicable when looking at many flexpart
-                                output files
-            **fig_kwargs    : figure kwargs when creating matplotlib.figure object
 
     """
     if ax == None:
-        ax = plt.axes(projection=ccrs.PlateCarree)
+        ax = plt.axes(projection=projection)
+    if extent:
+        ax.set_extent(extent)
 
-
-
-    ax = mpl_base_map_plot_xr(dset, ax=ax,
+    if var_Name==None:
+        dataarray=dset[dset.var_Name]
+    else:
+        dataarray=dset[var_Name]
+    
+    ax = mpl_base_map_plot_xr(dataarray, ax=ax,
                                 plotting_method=plotting_method,
-                                mark_receptor = True, vmin=vmin, vmax=vmax
+                                vmin=vmin, vmax=vmax, **kwargs
                                 )
+    if mark_receptor==True:
+        ax.scatter(dset['RELLNG'], dset['RELLAT'], transform =projection, marker='*', s=40)
+    
+    if title:
+        ax.set_title(title)
+    else:
+        ind_receptor = dset.attrs['ind_receptor']
+        if ind_receptor == 1:
+            title = 'Concentration'
+        elif ind_receptor == 4:
+            title = 'Dry depostion'
+        elif ind_receptor == 3:
+            title = 'Wet depostion'
+        ax.set_title('FLEXPART {} simulation'.format(title))
+    if info_dict:
+        info_dict = info_dict
+    else:
+        info_dict = {
+            'Version': dset.attrs['version'],
+            'ldirect' : dset.attrs['ldirect']
+        }
+
+
+    create_info_str(ax, info_dict, info_loc)
     return ax
 
 
@@ -218,27 +138,31 @@ def create_info_str(ax,info_dict, loc):
     ax.add_artist(anc_text)
 
 
-def mpl_base_map_plot_xr(dataset, ax,
+def mpl_base_map_plot_xr(dataarray, ax=None,
                     plotting_method = 'pcolormesh',
-                    datavar = None,
                     log = True,
                     vmin = None,
                     vmax = None,
                     mark_receptor = False,
                     colorbar =True,
+                    projection=ccrs.PlateCarree(),
                     **kwargs):
     """
     DESCRIPTION
     ===========
         Backbone of DUST ploting functionally, should be as general as possible
-        Data should be a 2D xarray.dataarray
+        Data should be a 2D xarray.dataarray. This is mostly as simple wrapper of 
+        xarray's matplotlib wrapper
     USAGE:
     ======
+        dataarray : 2D xarray data array
+        colorbar  : whether to draw colorbar or not, default =FALSE
+        log : whether to plot logarithmic color scale.
+        vmin 
+
     """
-    if datavar == None:
-        varName = dataset.varName
-    else:
-        varName = datavar
+    if ax ==None:
+        ax = plt.axes(projection=projection)
     default_options = {'cmap': None}
 
     default_options.update(kwargs)
@@ -250,17 +174,20 @@ def mpl_base_map_plot_xr(dataset, ax,
         cmap = default_options.pop('cmap')
 
     if vmin  ==None and vmax == None:
-        dat_min = dataset[varName].min()
-        dat_max = dataset[varName].max()
+        dat_min = dataarray.min()
+        dat_max = dataarray.max()
     elif vmin != None and vmax == None:
         dat_min = vmin
-        dat_max = dataset[varName].max()
+        dat_max = dataarray.max()
+        dataarray = xr.where(dataarray>vmin,dataarray,np.nan)
     elif vmin == None and vmax != None:
-        dat_min = dataset[varName].min()
+        dat_min = dataarray.min()
         dat_max = vmax
+        dataarray = xr.where(dataarray<vmax,dataarray,np.nan)
     else:
         dat_max = vmax
         dat_min = vmin
+        dataarray = xr.where(((dataarray > vmin) & (dataarray < vmax)), dataarray, np.nan)
 
     if log:
         levels = _gen_log_clevs(dat_min, dat_max)
@@ -270,19 +197,13 @@ def mpl_base_map_plot_xr(dataset, ax,
         norm = None
 
     if plotting_method == 'pcolormesh':
-         dataset[varName].plot.pcolormesh(ax=ax,
-                norm=norm,
-                cmap = cmap, add_colorbar=colorbar, levels=levels,extend='max',**default_options)
+        ax = xr.plot.pcolormesh(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,**kwargs)
+
     elif plotting_method =='contourf':
-        ax.add_artist(dataset[varName].plot.contourf(ax=ax, transform  = ccrs.PlateCarree(),
-                norm=norm,
-                cmap = cmap, levels=levels, add_colorbar=colorbar,extend='max',**default_options))
+        ax = xr.plot.contourf(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,**kwargs)
+
     else:
         raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
-
-
-    if mark_receptor:
-        ax.scatter(dataset.RELLNG1, dataset.RELLAT1, marker = '*', s=40, transform = ccrs.PlateCarree(), color ='black')
 
     return ax
 
