@@ -19,6 +19,7 @@ mpl.rcParams['axes.labelsize'] = 'large'
 mpl.rcParams['xtick.labelsize'] = 'medium'
 mpl.rcParams['ytick.labelsize'] = 'medium'
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#825f87", "#5f34e7", "#d3494e", "#464196", "#017371", "#ff9a8a", "#fa2a55", "#13eac9"])
+xr.set_options(keep_attrs=True)
 
 def plot_emission_time_series(dset,
                                     title=None,
@@ -163,6 +164,8 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
         vmin 
 
     """
+
+    attrs = dataarray.attrs
     if ax ==None:
         ax = plt.axes(projection=projection)
 
@@ -176,16 +179,17 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
     elif vmin != None and vmax == None:
         dat_min = vmin
         dat_max = dataarray.max()
-        dataarray = xr.where(dataarray>vmin,dataarray,np.nan)
     elif vmin == None and vmax != None:
         dat_min = dataarray.min()
         dat_max = vmax
         dataarray = xr.where(dataarray<vmax,dataarray,np.nan)
+        dataarray.attrs = attrs
     else:
         dat_max = vmax
         dat_min = vmin
-        dataarray = xr.where(((dataarray > vmin) & (dataarray < vmax)), dataarray, np.nan)
-
+        
+        dataarray = xr.where((dataarray > vmin), dataarray, np.nan)
+        dataarray.attrs = attrs
     if log:
         levels = _gen_log_clevs(dat_min, dat_max)
         norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
