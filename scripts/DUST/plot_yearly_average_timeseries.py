@@ -58,7 +58,7 @@ if __name__ == "__main__":
     parser.add_argument('--x1', help='longitude of top right corner of grid slice', default=None, type=int)
     parser.add_argument('--y1', help='latidute of top right corner of grid slice', default=None, type=int)
     parser.add_argument('--psd', help='fraction of particle size distrubution corresponding to size of particle, 2micron 0.08, 20mciron 0.03', 
-                            default=1, type=int)
+                            default=1, type=float)
     parser.add_argument('--oni_index', '--oni', help='Include plot of the ONI index, if path to oni data file is given', 
                         default=None)
     parser.add_argument('--area_path', '--ap', help='path to netCDF file containing the area (stored in flexdust output)',
