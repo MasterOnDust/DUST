@@ -8,7 +8,7 @@ def arg_parser(description='FLEX parser'):
     parser = ap.ArgumentParser(description=description)
     parser.add_argument('path', help='Path to top directory containing output')
     parser.add_argument('--outpath', '--op', help='Where the output should be stored', default='.')
-    parser.add_argument('--locations', '--loc', help='Number of location to apply fuction to', default='ALL', nargs='+', type=str)
+    parser.add_argument('--locations', '--loc', help='Number of location to apply fuction to', default=None, nargs='+', type=int)
     parser.add_argument('--sdate', '--sd', help='Begining of time slice')
     parser.add_argument('--edate', '--ed', help='End of time slice')
     

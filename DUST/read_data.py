@@ -1,4 +1,5 @@
 
+from inspect import istraceback
 import os
 import pandas as pd
 import numpy as np
@@ -7,6 +8,7 @@ import xarray as xr
 import dask
 from .utils.read_utils import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
 from .utils.utils import _fix_time_flexdust
+from functools import partial
 
 """
 This file contain functions for preparing data for analysis
@@ -20,7 +22,8 @@ Standard conventions:
 
 xr.set_options(keep_attrs=True)
 
-def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,**dset_kwargs):
+def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,ldirect=-1,
+                                    height=None, location=None,**dset_kwargs):
     """
     DESCRIPTION
     ===========
@@ -34,7 +37,7 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
 
         return : python dictionary containing xarray datasets
 
-        todo:: I don't really whats the best way to concatenated netCDF files using xarray
+        todo:: I don't know really whats the best way to concatenated netCDF files using xarray
                 So, currently this fuction feel very slow and not particularly robust, but it might
                 work fine for concatinating few files. At the moment it is better to first run concat_output.py
                 , which create the a concatinated netCDF file of the output with the correct formatting and
@@ -56,21 +59,21 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
         time_step = int(int(nc_files[1].split('/')[-1].split('_')[-1][9])-int(nc_files[0].split('/')[-1].split('_')[-1][9]))
     else:
         time_step = time_step
-    load_data_kwargs = dict(dataVars=data_Vars,ldirect=-1)
-    load_data_kwargs = {**load_data_kwargs, **dset_kwargs}
-    # dsets = [dask.delayed(read_flexpart_output)(path, **load_data_kwargs) for path in nc_files]
-    dsets = [read_flexpart_output(path, **load_data_kwargs) for path in nc_files]
-    data_vars_list = map(lambda x: x[x.varName],dsets)
-    # data_vars_list = dask.compute(data_vars_list)
-    concated = xr.concat(data_vars_list,pd.Index(range(0,len(dsets)*time_step,time_step),name='time'))
-    
-    with read_flexpart_output(nc_files[0], dataVars=data_Vars) as d0:
-        dset_out = d0.assign({data_Vars:concated})
-        
-    dset_out.attrs['source'] = dset_out.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
-    dset_out.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dset_out.iedate + dset_out.ietime).strftime('%Y-%m-%d %H:%M'))
-    dset_out = xr.decode_cf(dset_out, decode_times=True)
-    return dset_out
+
+    prep_func = partial(prepare_flexpart_dataset,dataVars=data_Vars,ldirect=ldirect)
+    if isinstance(data_Vars, list)==False:
+        data_Vars = [data_Vars]
+    dsets = xr.open_mfdataset(nc_files,concat_dim='time', decode_times=False, data_vars=data_Vars, combine='nested',parallel=True, preprocess=prep_func, **dset_kwargs)
+    if height !=None:
+        dsets= dsets.sel(height=height)
+    if location !=None:
+        dsets = dsets.sel(pointspec=location, numpoint=location)
+    t_index= pd.Index(range(0,len(dsets.time)*time_step,time_step))   
+    dsets=dsets.assign_coords(time=t_index) 
+    dsets.attrs['source'] = dsets.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
+    dsets.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dsets.iedate + dsets.ietime).strftime('%Y-%m-%d %H:%M'))
+    dsets = xr.decode_cf(dsets, decode_times=True)
+    return dsets
 
 def read_flexpart_metadata(path_output_folder):
     
@@ -134,7 +137,7 @@ def read_flexpart_metadata(path_output_folder):
     else:
         return outs
 
-def load_trajectories(path, nclusters=5):
+def load_trajectories(path, nclusters=5, skip_rows=24):
     cluster_list = []
     cluster_names = ['xcluster', 'ycluster', 'zcluster', 'fcluster',
     'rmscluster']
@@ -147,8 +150,20 @@ def load_trajectories(path, nclusters=5):
         trajecFile.readline()
         nlocs = int(trajecFile.readline().strip())
         lines = [next(trajecFile) for i in range(nlocs*3)]
-        locs = {i+1:line.strip() for i,line in enumerate(lines[2::3])}
+        locs = [line.strip().split(' ')[0] for i,line in enumerate(lines[2::3])]
+        locs_dict = {i+1:line.strip() for i,line in enumerate(lines[2::3])}
             
+
+
+
+    intial_data = [line1.strip() +  line2.strip() for line1, line2 in zip(lines[::3],lines[1::3])]
+
+    inital_data = [line.split() for line in intial_data]
+
+    df_head = pd.DataFrame(np.array(inital_data)[:,1:4])
+    df_head = df_head.rename(columns={1:'time', 2: 'lon', 3:'lat'})
+
+    df_head['locations'] = locs
         
     s_time = pd.to_datetime(header[0] + header[1])
 
@@ -161,17 +176,17 @@ def load_trajectories(path, nclusters=5):
     
     
     df = pd.read_csv(path, sep='\s+',
-                    skiprows=lambda x: x <24, names=cols)
+                    skiprows=lambda x: x <skip_rows, names=cols)
     
-    for key, location in locs.items():
+    for key, location in locs_dict.items():
         df.loc[df.loc[:,'location']==key, 'location'] = location
     
     df.loc[:,['location']] = df.loc[:,['location']].astype('category')
 #     time_p_rel = s_time + pd.to_timedelta(sec_p_rel, unit = 's')
     df['start time'] = s_time
-    return df, locs
+    return df, df_head
 
-def read_flexpart_trajectories(path_to_top_directory, nclusters=5):
+def read_flexpart_trajectories(path_to_top_directory, nclusters=5, skip_rows=24):
     """
     DESCRIPTION
     ===========
@@ -196,9 +211,9 @@ def read_flexpart_trajectories(path_to_top_directory, nclusters=5):
         except FileNotFoundError:
             paths = glob.glob(path_to_top_directory + "**/trajectories.txt", recursive=True) #recursively find FLEXPART output files
     
-    locations = load_trajectories(paths[0])[0]
-    trajectories = [load_trajectories(path, nclusters)[0] for path in paths]
-    return pd.concat(trajectories, ignore_index=True), locations
+    locations = load_trajectories(paths[0], skip_rows=skip_rows)[1]
+    trajectories = [load_trajectories(path, nclusters, skip_rows=skip_rows)[0] for path in paths]
+    return pd.concat(trajectories, axis=0,ignore_index=True), locations
 
 def read_flexdust_output(path_output, **xarray_kwargs):
     """
@@ -274,7 +289,7 @@ def prepare_flexpart_dataset(dset,dataVars='spec001_mr',ldirect=-1):
     if ldirect == -1:
         
         usefull = ['RELCOM', 'RELLNG1', 'RELLNG2', 'RELLAT1','RELLAT2', 'RELZZ1', 'RELZZ2'
-          ,'RELKINDZ', 'RELSTART', 'RELEND', 'RELPART','ORO']
+          ,'RELKINDZ', 'RELSTART', 'RELEND', 'RELPART']
         usefull.append(dataVars)
         not_usefull = [v for v in dset.data_vars if v not in usefull]
         dset = dset.drop(not_usefull)
@@ -284,18 +299,19 @@ def prepare_flexpart_dataset(dset,dataVars='spec001_mr',ldirect=-1):
         dset.btime.attrs['long_name'] = 'time along back trajectory'
         dset = dset.assign_attrs({'varName':dataVars})
 
-        
 
 
-    dset = dset.swap_dims({'numpoint':'pointspec'})
-    relcoms = dset.RELCOM.str.strip().str.decode('utf-8').values
-    dset = dset.assign(RELCOM = xr.DataArray(relcoms, dims=('pointspec'),
-                    coords={'pointspec' : relcoms},
-                  attrs={'long_name':'release point name'}))
-    dset = dset.rename(pointspec='point')
-    dset.point.attrs['long_name'] =  'Name of release location'
+
+    # dset = dset.swap_dims({'numpoint':'pointspec'})
+    # print(dset.RELCOM.str.strip().str.decode('utf-8'))
+    # relcoms = dset.RELCOM.str.strip().str.decode('utf-8')
+    # dset = dset.assign(RELCOM = xr.DataArray(relcoms, dims=('pointspec'),
+    #                 coords={'pointspec' : relcoms},
+    #               attrs={'long_name':'release point name'}))
+    # dset = dset.rename(pointspec='point')
+    # dset.point.attrs['long_name'] =  'Name of release location'
     dset = dset.rename({'longitude':'lon', 'latitude':'lat'})
-    
+
 
     dset = dset.squeeze()    
 
