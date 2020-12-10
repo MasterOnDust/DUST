@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import xarray as xr 
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -8,10 +10,11 @@ from matplotlib import rcParams
 import os
 
 def process_data(ds, method='mean', area=None):
-    time0 = ds.time[0].dt.strftime("%Y")
-    time1 = ds.time[-1].dt.strftime("%Y")
-    ds.attrs['x0'] = ds.lon.min(); ds.attrs['x1'] = ds.lon.max()
-    ds.attrs['y0'] = ds.lat.min(); ds.attrs['y1'] = ds.lat.max()
+    
+    time0 = str(ds.time[0].dt.strftime("%Y").values)
+    time1 = str(ds.time[-1].dt.strftime("%Y").values)
+    ds.attrs['x0'] = ds.lon.min().values; ds.attrs['x1'] = ds.lon.max().values
+    ds.attrs['y0'] = ds.lat.min().values; ds.attrs['y1'] = ds.lat.max().values
     ds = ds.sum(dim=['lat','lon'],keep_attrs=True)
     ds.attrs['sdate'] = time0
     ds.attrs['edate'] = time1
@@ -21,13 +24,15 @@ def process_data(ds, method='mean', area=None):
         ds = ds.resample(time='Y').sum(dim='time', keep_attrs=True)
     else:
         raise(ValueError("method {} is invalid".format(method)))
-    
+    ds = ds.assign_coords(time=ds.time.dt.year)
+
+    return ds
 
 def read_oni_dfj(path, sdate, edate):
     names=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep','Oct', 'Nov', 'Dec']
     df = pd.read_csv(path, sep=r"\s+", header=None, names=names, 
                     skiprows=[0,1], index_col=0, na_values=-99.99, skipfooter=8, engine='python')
-    df_Jan = df['Jan'].loc[sdate:edate|]
+    df_Jan = df['Jan'].loc[sdate:edate]
     df_Feb = df['Feb'].loc[sdate:edate]
     df_Dec = df['Dec'].loc[sdate:edate]
 
@@ -52,7 +57,7 @@ if __name__ == "__main__":
     parser.add_argument('--y0', help='latitude of lower left corner of grid slice', default=None, type=int)
     parser.add_argument('--x1', help='longitude of top right corner of grid slice', default=None, type=int)
     parser.add_argument('--y1', help='latidute of top right corner of grid slice', default=None, type=int)
-    parser.add_argument('--psd', help='fraction of particle size distrubution corresponding to size of particle', 
+    parser.add_argument('--psd', help='fraction of particle size distrubution corresponding to size of particle, 2micron 0.08, 20mciron 0.03', 
                             default=1, type=int)
     parser.add_argument('--oni_index', '--oni', help='Include plot of the ONI index, if path to oni data file is given', 
                         default=None)
@@ -62,7 +67,6 @@ if __name__ == "__main__":
     parser.add_argument('--tag', '--tg', default='', 
                         help="tag to include in the beginning for file name")
     parser.add_argument('--file_extension', '--fe', default='png')
-    source_strenght2m = 0.08, source_strenght20m = 0.03
     args = parser.parse_args()
     paths = args.paths
     outpath = args.outpath
@@ -84,16 +88,18 @@ if __name__ == "__main__":
         area_ds = xr.open_dataarray(area_path, decode_times=False)
         area = area_ds['area']
 
-    dsets = [process_data(xr.open_dataset(path).slice(lon=slice(x0,x1),lat=slice(y0,y1))
+    dsets = [process_data(xr.open_dataset(path).sel(lon=slice(x0,x1),lat=slice(y0,y1))
                             ,method=method, area=area) for path in paths]
     rcParams.update({'figure.autolayout': True})
-    fig,ax =plt.subplot(figsize=(12,5))
+    fig,ax = plt.subplots(figsize=(12,5))
     for dset in dsets:
-        dplot.plot_emission_time_series(dset,ax=ax,linewidth=3)
+        #print(dset)
+        dplot.plot_emission_time_series(dset,ax=ax,linewidth=3, label=dset.attrs['RELCOM'])
     ax.grid()
-    ax.set_xticks(dsets[0].time, rotation=40, ha='rights', fontsize=12)
+    ax.set_xticks(dsets[0].time.values)
+    ax.set_xticklabels(dsets[0].time.values, rotation=40, ha='right', fontsize=12)
 
-    ax.set_title('lon0 {}, lat0 {}, lon1 {}, lat1 {}'.format(dsets[0].x0,dsets[0].y0, dsets[0].x1, dsets[0].y1))
+    ax.set_title('lon0 {:3.2f}, lat0 {:3.2f}, lon1 {:3.2f}, lat1 {:3.2f}'.format(dsets[0].x0,dsets[0].y0, dsets[0].x1, dsets[0].y1))
     if oniIndex:
         ax2 = ax.twinx()
         sdate = dsets[0].attrs['sdate'] ; edate = dsets[0].attrs['edate']
@@ -106,4 +112,5 @@ if __name__ == "__main__":
     fig.legend()
     outfilename = os.path.join(outpath,tag+"_time-series_{}_{}_{}.{}".format(dsets[0].varName, dsets[0].sdate,
                                                                             dsets[0].edate, file_extension))
+    ax.grid()
     plt.savefig(outfilename, dpi=300, bbox_inches='tight')
