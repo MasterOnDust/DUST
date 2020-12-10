@@ -103,7 +103,8 @@ def plot_emission_sensitivity(dset,
                                 vmin=vmin, vmax=vmax, **kwargs
                                 )
     if mark_receptor==True:
-        ax.scatter(dset['RELLNG'], dset['RELLAT'], transform =projection, marker='*', s=40)
+        ax.scatter(dset['RELLNG'], dset['RELLAT'], transform =projection, 
+                marker='*', s=40, color='black', zorder=1000)
     
     if title:
         ax.set_title(title)
@@ -145,6 +146,7 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
                     vmax = None,
                     mark_receptor = False,
                     colorbar =True,
+                    cmap = None,
                     projection=ccrs.PlateCarree(),
                     **kwargs):
     """
@@ -163,16 +165,11 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
     """
     if ax ==None:
         ax = plt.axes(projection=projection)
-    default_options = {'cmap': None}
 
-    default_options.update(kwargs)
 
-    if default_options['cmap'] == None:
+    if cmap == None:
         cmap = _gen_flexpart_colormap()
-        default_options.pop('cmap')
-    else:
-        cmap = default_options.pop('cmap')
-
+        cmap.set_over(color='k', alpha=0.8)
     if vmin  ==None and vmax == None:
         dat_min = dataarray.min()
         dat_max = dataarray.max()
@@ -197,10 +194,12 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
         norm = None
 
     if plotting_method == 'pcolormesh':
-        ax = xr.plot.pcolormesh(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,**kwargs)
+        xr.plot.pcolormesh(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,cmap=cmap,
+                    **kwargs)
 
     elif plotting_method =='contourf':
-        ax = xr.plot.contourf(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,**kwargs)
+        xr.plot.contourf(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,cmap=cmap,
+                    **kwargs)
 
     else:
         raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
