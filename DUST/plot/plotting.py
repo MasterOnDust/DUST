@@ -94,11 +94,11 @@ def plot_emission_sensitivity(dset,
         ax.set_extent(extent)
 
     if var_Name==None:
-        dataarray=dset[dset.var_Name]
+        dataarray=dset[dset.varName]
     else:
         dataarray=dset[var_Name]
     
-    ax = mpl_base_map_plot_xr(dataarray, ax=ax,
+    mpl_base_map_plot_xr(dataarray, ax=ax,
                                 plotting_method=plotting_method,
                                 vmin=vmin, vmax=vmax, **kwargs
                                 )
