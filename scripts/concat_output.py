@@ -3,10 +3,9 @@ import os
 
 from dask.distributed import Client, LocalCluster 
 from DUST.read_data import read_multiple_flexpart_outputs
-from DUST.utils.utils import arg_parser, region_slice
+from DUST.utils.utils import arg_parser
 import pandas as pd
 import shutil
-from IPython import embed
 import numpy as np
 import sys
 if __name__ == "__main__":
@@ -53,7 +52,7 @@ if __name__ == "__main__":
     client = Client(cluster)
     # Load the netCDF files
     dset = read_multiple_flexpart_outputs(nc_files, height=heights, location=locations)
-    dset[dset.varName] = region_slice(dset[dset.varName], x0, x1, y0, y1)
+    dset = dset.sel(lon=slice(x0,x1),lat=slice(y0,y1))
     spatial_attrs_names = ['outlon0', 'outlon1', 'outlat0', 'outlat1']
     if y1 == None:
         y1 = len(dset.lat) * dset.dyout + dset.outlat0
@@ -64,13 +63,16 @@ if __name__ == "__main__":
         if outloc != None:
             dset.attrs[key] = outloc
     
-
-    if dset.height.values.size == 1:
-        heights = [int(dset.height.values)]
+    if 'height' in dset.dims:
+        h = ['total']
         sel_height=False
     else:
-        heights = dset.height.values
-        sel_height=True
+        if dset.height.values.size == 1:
+            heights = [int(dset.height.values)]
+            sel_height=False
+        else:
+            heights = dset.height.values
+            sel_height=True
     
     if dset.pointspec.values.size ==1:
         pointspecs = [int(dset.pointspec.values)]
@@ -82,16 +84,18 @@ if __name__ == "__main__":
         for h in heights:
             if sel_point==False and sel_height:
                 temp_dset= dset.sel(height=h)
+                h=int(h)
             elif sel_height==False and sel_point:
                 temp_dset=dset.sel(numpoint=point,pointspec=point)
             elif sel_height and sel_point:
                 temp_dset = dset.sel(numpoint=point, pointspec=point, height=h)
+                h = int(h)
             else:
                 temp_dset = dset
             temp_dset = temp_dset.squeeze()
             temp_dset = temp_dset.persist()
             Loc_name = str(np.char.decode(temp_dset.RELCOM.values)).strip().split(' ')
-            file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),int(h), date0, date1) 
+            file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),h, date0, date1) 
             outfile_path = os.path.join(path_to_dir, file_name)
             # temp_dset['point'] = temp_dset.point.astype('S{}'.format(len(location)))
             temp_dset = temp_dset.drop_vars('RELCOM')
