@@ -10,8 +10,8 @@ import cartopy as cr
 import cartopy.io.img_tiles as cimgt
 import numpy as np
 from DUST.plot.utils import _gen_flexpart_colormap
-import glob
 import argparse as ap
+import pandas as pd
 
 def plot_monthly_mean(paths, fname):
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul','Aug','Sep', 'Oct', 'Nov', 'Dec']
