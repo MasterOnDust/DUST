@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-
+from IPython import embed
 from dask.distributed import Client, LocalCluster 
 from DUST.read_data import read_multiple_flexpart_outputs
 from DUST.utils.utils import arg_parser
@@ -63,8 +63,8 @@ if __name__ == "__main__":
         if outloc != None:
             dset.attrs[key] = outloc
     
-    if 'height' in dset.dims:
-        h = ['total']
+    if 'height' not in dset.dims:
+        heights = ['total']
         sel_height=False
     else:
         if dset.height.values.size == 1:
@@ -82,6 +82,7 @@ if __name__ == "__main__":
         sel_point=True
     for point in pointspecs:
         for h in heights:
+
             if sel_point==False and sel_height:
                 temp_dset= dset.sel(height=h)
                 h=int(h)
@@ -92,15 +93,19 @@ if __name__ == "__main__":
                 h = int(h)
             else:
                 temp_dset = dset
+            print(temp_dset)
             temp_dset = temp_dset.squeeze()
             temp_dset = temp_dset.persist()
-            Loc_name = str(np.char.decode(temp_dset.RELCOM.values)).strip().split(' ')
+            #print(temp_dset)
+            Loc_name = str(temp_dset.RELCOM.values).strip().split(' ')
+
             file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),h, date0, date1) 
             outfile_path = os.path.join(path_to_dir, file_name)
             # temp_dset['point'] = temp_dset.point.astype('S{}'.format(len(location)))
             temp_dset = temp_dset.drop_vars('RELCOM')
-            temp_dset.attrs['relcom'] = Loc_name
-
+            temp_dset.attrs['relcom'] = ' '.join(Loc_name)
+            temp_dset[temp_dset.varName] = temp_dset[temp_dset.varName].astype(np.float32)
+            temp_dset.attrs['source'] = temp_dset['source'] + ' '.join(nc_files)
             shape_dset = temp_dset[temp_dset.varName].shape
             encoding = {'zlib': True, 'complevel':9,
                 'fletcher32': False,'contiguous': False, 'shuffle':False,
