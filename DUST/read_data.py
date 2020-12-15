@@ -9,6 +9,7 @@ import dask
 from .utils.read_utils import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
 from .utils.utils import _fix_time_flexdust
 from functools import partial
+from IPython import embed
 
 """
 This file contain functions for preparing data for analysis
@@ -85,6 +86,12 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
     dsets.attrs['source'] = dsets.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
     dsets.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dsets.iedate + dsets.ietime).strftime('%Y-%m-%d %H:%M'))
     dsets = xr.decode_cf(dsets, decode_times=True)
+
+    # Make sure RELCOM does not disappear!
+    ds = xr.open_dataset(nc_files[0])
+    relcom_dis = ds.RELCOM.attrs
+    dsets = dsets.assign(RELCOM=ds.RELCOM.astype('U35'))
+    dsets['RELCOM'].attrs = relcom_dis
     return dsets
 
 def read_flexpart_metadata(path_output_folder):
