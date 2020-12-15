@@ -82,7 +82,7 @@ if __name__ == "__main__":
         sel_point=True
     for point in pointspecs:
         for h in heights:
-            embed()
+
             if sel_point==False and sel_height:
                 temp_dset= dset.sel(height=h)
                 h=int(h)
@@ -97,13 +97,15 @@ if __name__ == "__main__":
             temp_dset = temp_dset.squeeze()
             temp_dset = temp_dset.persist()
             #print(temp_dset)
-            Loc_name = str(np.char.decode(temp_dset.RELCOM.values)).strip().split(' ')
+            Loc_name = str(temp_dset.RELCOM.values).strip().split(' ')
+
             file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),h, date0, date1) 
             outfile_path = os.path.join(path_to_dir, file_name)
             # temp_dset['point'] = temp_dset.point.astype('S{}'.format(len(location)))
             temp_dset = temp_dset.drop_vars('RELCOM')
-            temp_dset.attrs['relcom'] = Loc_name
-
+            temp_dset.attrs['relcom'] = ' '.join(Loc_name)
+            temp_dset[temp_dset.varName] = temp_dset[temp_dset.varName].astype(np.float32)
+            temp_dset.attrs['source'] = temp_dset['source'] + ' '.join(nc_files)
             shape_dset = temp_dset[temp_dset.varName].shape
             encoding = {'zlib': True, 'complevel':9,
                 'fletcher32': False,'contiguous': False, 'shuffle':False,
