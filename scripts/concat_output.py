@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-
+from IPython import embed
 from dask.distributed import Client, LocalCluster 
 from DUST.read_data import read_multiple_flexpart_outputs
 from DUST.utils.utils import arg_parser
@@ -63,8 +63,8 @@ if __name__ == "__main__":
         if outloc != None:
             dset.attrs[key] = outloc
     
-    if 'height' in dset.dims:
-        h = ['total']
+    if 'height' not in dset.dims:
+        heights = ['total']
         sel_height=False
     else:
         if dset.height.values.size == 1:
@@ -82,6 +82,7 @@ if __name__ == "__main__":
         sel_point=True
     for point in pointspecs:
         for h in heights:
+            embed()
             if sel_point==False and sel_height:
                 temp_dset= dset.sel(height=h)
                 h=int(h)
@@ -92,8 +93,10 @@ if __name__ == "__main__":
                 h = int(h)
             else:
                 temp_dset = dset
+            print(temp_dset)
             temp_dset = temp_dset.squeeze()
             temp_dset = temp_dset.persist()
+            #print(temp_dset)
             Loc_name = str(np.char.decode(temp_dset.RELCOM.values)).strip().split(' ')
             file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),h, date0, date1) 
             outfile_path = os.path.join(path_to_dir, file_name)
