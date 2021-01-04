@@ -15,7 +15,7 @@ def get_sensitvity_at_point(paths, fname,df, groupby_key='Mountain', outpath='./
         temp_df = df.drop(fname)
         groupby_loc = temp_df.groupby('Mountain')
         month = int(ds.time.dt.month[0].values)
-        out_df = pd.DataFrame(columns=locs.index, index=range(13))
+        out_df = pd.DataFrame(columns=ds.index, index=range(13))
         for index, location in groupby_loc:
             ems_sens = ds.sel(lon=location['lon'], lat=location['lat'], method='nearest').sum(dim='btime').mean(dim='time').values
             out_df.loc[month,index] = ems_sens

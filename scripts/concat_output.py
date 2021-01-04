@@ -8,13 +8,20 @@ import pandas as pd
 import shutil
 import numpy as np
 import sys
+import argparse as ap
+
 if __name__ == "__main__":
-    parser = arg_parser('Concatenate FLEXPART simulations')
+    parser = ap.ArgumentParser(description='Concatenate FLEXPART simulations')
     parser.add_argument('--x0' ,help = 'longitude of lower left corner of grid slice', default=None, type=int)
     parser.add_argument('--y0', help='latitude of lower left corner of grid slice', default=None, type=int)
     parser.add_argument('--x1', help='longitude of top right corner of grid slice', default=None, type=int)
     parser.add_argument('--y1', help='latidute of top right corner of grid slice', default=None, type=int)
     parser.add_argument('--heights', help='which levels to concatenate output for', nargs='+', type=int, default=None)
+    parser.add_argument('path', help='Path to top directory containing output')
+    parser.add_argument('--outpath', '--op', help='Where the output should be stored', default='.')
+    parser.add_argument('--locations', '--loc', help='Number of location to apply fuction to', default=None, nargs='+', type=int)
+    parser.add_argument('--sdate', '--sd', help='Begining of time slice')
+    parser.add_argument('--edate', '--ed', help='End of time slice')
     args = parser.parse_args()
     locations = args.locations
     path = args.path
@@ -48,7 +55,7 @@ if __name__ == "__main__":
         else:
             sys.exit()
 
-    cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='64GB')
+    cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='32GB')
     client = Client(cluster)
     # Load the netCDF files
     dset = read_multiple_flexpart_outputs(nc_files, height=heights, location=locations)
@@ -93,7 +100,6 @@ if __name__ == "__main__":
                 h = int(h)
             else:
                 temp_dset = dset
-            print(temp_dset)
             temp_dset = temp_dset.squeeze()
             temp_dset = temp_dset.persist()
             #print(temp_dset)
@@ -103,9 +109,10 @@ if __name__ == "__main__":
             outfile_path = os.path.join(path_to_dir, file_name)
             # temp_dset['point'] = temp_dset.point.astype('S{}'.format(len(location)))
             temp_dset = temp_dset.drop_vars('RELCOM')
+
             temp_dset.attrs['relcom'] = ' '.join(Loc_name)
             temp_dset[temp_dset.varName] = temp_dset[temp_dset.varName].astype(np.float32)
-            temp_dset.attrs['source'] = temp_dset['source'] + ' '.join(nc_files)
+            temp_dset.attrs['source'] = temp_dset.attrs['source'] + ' '.join(nc_files)    
             shape_dset = temp_dset[temp_dset.varName].shape
             encoding = {'zlib': True, 'complevel':9,
                 'fletcher32': False,'contiguous': False, 'shuffle':False,
