@@ -55,13 +55,8 @@ if __name__ == "__main__":
         else:
             sys.exit()
 
-<<<<<<< HEAD
     cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='32GB')
     client = Client(cluster)
-=======
-    #cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='64GB')
-    #client = Client(cluster)
->>>>>>> main
     # Load the netCDF files
     dset = read_multiple_flexpart_outputs(nc_files, height=heights, location=locations)
     dset = dset.sel(lon=slice(x0,x1),lat=slice(y0,y1))
@@ -114,11 +109,7 @@ if __name__ == "__main__":
 
             temp_dset.attrs['relcom'] = ' '.join(Loc_name)
             temp_dset[temp_dset.varName] = temp_dset[temp_dset.varName].astype(np.float32)
-<<<<<<< HEAD
             temp_dset.attrs['source'] = temp_dset.attrs['source'] + ' '.join(nc_files)    
-=======
-            temp_dset.attrs['source'] = temp_dset.attrs['source'] + ' '.join(nc_files)
->>>>>>> main
             shape_dset = temp_dset[temp_dset.varName].shape
             encoding = {'zlib': True, 'complevel':9,
                 'fletcher32': False,'contiguous': False, 'shuffle':False,

@@ -19,13 +19,6 @@ def get_sensitvity_at_point(paths, fname,df,box_size_receptor=0,
     for path in paths:
 
         ds = xr.open_dataset(path)
-<<<<<<< HEAD
-        height=ds.height.values
-        temp_df = df.drop(fname)
-        groupby_loc = temp_df.groupby('Mountain')
-        month = int(ds.time.dt.month[0].values)
-        out_df = pd.DataFrame(columns=ds.index, index=range(13))
-=======
         if tag == None:
             out_tag=ds.height.values
         else:
@@ -33,7 +26,6 @@ def get_sensitvity_at_point(paths, fname,df,box_size_receptor=0,
         groupby_loc = df.groupby('Mountain')
         month = int(ds.time.dt.month[0])
         #print(path,month)
->>>>>>> main
         for index, location in groupby_loc:
             if index==fname:
                 ems_sens = ds['spec001_mr'].sel(lon=slice(float(location['lon'].values-box_size_receptor),
