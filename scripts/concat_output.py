@@ -55,8 +55,13 @@ if __name__ == "__main__":
         else:
             sys.exit()
 
+<<<<<<< HEAD
     cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='32GB')
     client = Client(cluster)
+=======
+    #cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='64GB')
+    #client = Client(cluster)
+>>>>>>> main
     # Load the netCDF files
     dset = read_multiple_flexpart_outputs(nc_files, height=heights, location=locations)
     dset = dset.sel(lon=slice(x0,x1),lat=slice(y0,y1))
@@ -101,24 +106,30 @@ if __name__ == "__main__":
             else:
                 temp_dset = dset
             temp_dset = temp_dset.squeeze()
-            temp_dset = temp_dset.persist()
-            #print(temp_dset)
             Loc_name = str(temp_dset.RELCOM.values).strip().split(' ')
 
             file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),h, date0, date1) 
             outfile_path = os.path.join(path_to_dir, file_name)
-            # temp_dset['point'] = temp_dset.point.astype('S{}'.format(len(location)))
             temp_dset = temp_dset.drop_vars('RELCOM')
 
             temp_dset.attrs['relcom'] = ' '.join(Loc_name)
             temp_dset[temp_dset.varName] = temp_dset[temp_dset.varName].astype(np.float32)
+<<<<<<< HEAD
             temp_dset.attrs['source'] = temp_dset.attrs['source'] + ' '.join(nc_files)    
+=======
+            temp_dset.attrs['source'] = temp_dset.attrs['source'] + ' '.join(nc_files)
+>>>>>>> main
             shape_dset = temp_dset[temp_dset.varName].shape
             encoding = {'zlib': True, 'complevel':9,
                 'fletcher32': False,'contiguous': False, 'shuffle':False,
                 'chunksizes':(1,shape_dset[1], shape_dset[2], shape_dset[3]),
             }
+            #embed()
+            #print(temp_dset)
+            temp_dset.to_netcdf(outfile_path,encoding={temp_dset.varName:encoding}, 
+                    unlimited_dims=['time'])
+    #cluster.close()
+    #client.close()
 
-            temp_dset.to_netcdf(outfile_path,encoding={temp_dset.varName:encoding}, unlimited_dims=['time'])
-            temp_dset.close()
+    #embed()
 

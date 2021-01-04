@@ -17,7 +17,7 @@ def plot_monthly_mean(paths, fname):
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul','Aug','Sep', 'Oct', 'Nov', 'Dec']
     fig, axes = plt.subplots(nrows = 3, ncols=4,subplot_kw={'projection':ccrs.PlateCarree()}, figsize=(16,14))
     fig.suptitle('Montly averaged Emission Sensitivity {}'.format(fname))
-    df = pd.read_csv('african_mountains.csv')
+    df = pd.read_csv('~/DUST_scripts/scripts/Seeds_Africa/mountainlon_lat.csv')
     for ax, path, month in zip(axes.flatten(), paths, months):
         ds = xr.open_dataset(path)
         with xr.set_options(keep_attrs=True):
