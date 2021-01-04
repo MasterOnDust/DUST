@@ -86,12 +86,17 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
     dsets.attrs['source'] = dsets.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
     dsets.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dsets.iedate + dsets.ietime).strftime('%Y-%m-%d %H:%M'))
     dsets = xr.decode_cf(dsets, decode_times=True)
+    #embed()
 
+    dsets['RELCOM'] = dsets['RELCOM'].astype('U35')
     # Make sure RELCOM does not disappear!
-    ds = xr.open_dataset(nc_files[0])
-    relcom_dis = ds.RELCOM.attrs
-    dsets = dsets.assign(RELCOM=ds.RELCOM.astype('U35'))
-    dsets['RELCOM'].attrs = relcom_dis
+    #ds = xr.open_dataset(nc_files[0])
+    #relcom = ds.RELCOM.copy().astype('U35')
+    #relcom_dis = ds.RELCOM.attrs
+    #dsets = dsets.assign(RELCOM=relcom)
+    #dsets['RELCOM'].attrs = relcom_dis
+
+    # embed()
     return dsets
 
 def read_flexpart_metadata(path_output_folder):
