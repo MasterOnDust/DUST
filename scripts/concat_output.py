@@ -4,6 +4,7 @@ from IPython import embed
 from dask.distributed import Client, LocalCluster 
 from DUST.read_data import read_multiple_flexpart_outputs
 from DUST.utils.utils import arg_parser
+from distributed import client
 import pandas as pd
 import shutil
 import numpy as np
@@ -56,71 +57,71 @@ if __name__ == "__main__":
             sys.exit()
 
     cluster = LocalCluster(n_workers=8,threads_per_worker=1 ,memory_limit='32GB')
-    client = Client(cluster)
-    # Load the netCDF files
-    dset = read_multiple_flexpart_outputs(nc_files, height=heights, location=locations)
-    dset = dset.sel(lon=slice(x0,x1),lat=slice(y0,y1))
-    spatial_attrs_names = ['outlon0', 'outlon1', 'outlat0', 'outlat1']
-    if y1 == None:
-        y1 = len(dset.lat) * dset.dyout + dset.outlat0
-    if x1 == None:
-        x1 = len(dset.lon) * dset.dxout + dset.outlon0
-    # Update attribute if output grid has been sliced
-    for key, outloc in zip(spatial_attrs_names, [x0,x1, y0,y1]):
-        if outloc != None:
-            dset.attrs[key] = outloc
-    
-    if 'height' not in dset.dims:
-        heights = ['total']
-        sel_height=False
-    else:
-        if dset.height.values.size == 1:
-            heights = [int(dset.height.values)]
+    with Client(cluster) as client:
+        # Load the netCDF files
+        dset = read_multiple_flexpart_outputs(nc_files, height=heights, location=locations)
+        dset = dset.sel(lon=slice(x0,x1),lat=slice(y0,y1))
+        spatial_attrs_names = ['outlon0', 'outlon1', 'outlat0', 'outlat1']
+        if y1 == None:
+            y1 = len(dset.lat) * dset.dyout + dset.outlat0
+        if x1 == None:
+            x1 = len(dset.lon) * dset.dxout + dset.outlon0
+        # Update attribute if output grid has been sliced
+        for key, outloc in zip(spatial_attrs_names, [x0,x1, y0,y1]):
+            if outloc != None:
+                dset.attrs[key] = outloc
+        
+        if 'height' not in dset.dims:
+            heights = ['total']
             sel_height=False
         else:
-            heights = dset.height.values
-            sel_height=True
-    
-    if dset.pointspec.values.size ==1:
-        pointspecs = [int(dset.pointspec.values)]
-        sel_point=False
-    else:
-        pointspecs = dset.pointspec.values
-        sel_point=True
-    for point in pointspecs:
-        for h in heights:
-
-            if sel_point==False and sel_height:
-                temp_dset= dset.sel(height=h)
-                h=int(h)
-            elif sel_height==False and sel_point:
-                temp_dset=dset.sel(numpoint=point,pointspec=point)
-            elif sel_height and sel_point:
-                temp_dset = dset.sel(numpoint=point, pointspec=point, height=h)
-                h = int(h)
+            if dset.height.values.size == 1:
+                heights = [int(dset.height.values)]
+                sel_height=False
             else:
-                temp_dset = dset
-            temp_dset = temp_dset.squeeze()
-            Loc_name = str(temp_dset.RELCOM.values).strip().split(' ')
+                heights = dset.height.values
+                sel_height=True
+        
+        if dset.pointspec.values.size ==1:
+            pointspecs = [int(dset.pointspec.values)]
+            sel_point=False
+        else:
+            pointspecs = dset.pointspec.values
+            sel_point=True
+        for point in pointspecs:
+            for h in heights:
 
-            file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),h, date0, date1) 
-            outfile_path = os.path.join(path_to_dir, file_name)
-            temp_dset = temp_dset.drop_vars('RELCOM')
+                if sel_point==False and sel_height:
+                    temp_dset= dset.sel(height=h)
+                    h=int(h)
+                elif sel_height==False and sel_point:
+                    temp_dset=dset.sel(numpoint=point,pointspec=point)
+                elif sel_height and sel_point:
+                    temp_dset = dset.sel(numpoint=point, pointspec=point, height=h)
+                    h = int(h)
+                else:
+                    temp_dset = dset
+                temp_dset = temp_dset.squeeze()
+                Loc_name = str(temp_dset.RELCOM.values).strip().split(' ')
 
-            temp_dset.attrs['relcom'] = ' '.join(Loc_name)
-            temp_dset[temp_dset.varName] = temp_dset[temp_dset.varName].astype(np.float32)
-            temp_dset.attrs['source'] = temp_dset.attrs['source'] + ' '.join(nc_files)    
-            shape_dset = temp_dset[temp_dset.varName].shape
-            encoding = {'zlib': True, 'complevel':9,
-                'fletcher32': False,'contiguous': False, 'shuffle':False,
-                'chunksizes':(1,shape_dset[1], shape_dset[2], shape_dset[3]),
-            }
-            #embed()
-            #print(temp_dset)
-            temp_dset.to_netcdf(outfile_path,encoding={temp_dset.varName:encoding}, 
-                    unlimited_dims=['time'])
-    #cluster.close()
-    #client.close()
+                file_name = "{}_{}_{}_{}.nc".format('_'.join(Loc_name),h, date0, date1) 
+                outfile_path = os.path.join(path_to_dir, file_name)
+                temp_dset = temp_dset.drop_vars('RELCOM')
 
-    #embed()
+                temp_dset.attrs['relcom'] = ' '.join(Loc_name)
+                temp_dset[temp_dset.varName] = temp_dset[temp_dset.varName].astype(np.float32)
+                temp_dset.attrs['source'] = temp_dset.attrs['source'] + ' '.join(nc_files)    
+                shape_dset = temp_dset[temp_dset.varName].shape
+                encoding = {'zlib': True, 'complevel':9,
+                    'fletcher32': False,'contiguous': False, 'shuffle':False,
+                    'chunksizes':(1,shape_dset[1], shape_dset[2], shape_dset[3]),
+                }
+                #embed()
+                #print(temp_dset)
+                temp_dset.to_netcdf(outfile_path,encoding={temp_dset.varName:encoding}, 
+                        unlimited_dims=['time'])
+        #cluster.close()
+        #client.close()
+
+        #embed()
 
