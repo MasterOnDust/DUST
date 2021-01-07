@@ -18,7 +18,7 @@ AUTHOR
     ovehaugv@outlook.com
 
 """
-def process_per_pointspec(dset, x0,x1,y0,y1, height=None):
+def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     dset = dset.drop_vars(['WD_spec001', 'DD_spec001'])
     dset = dset.chunk({'pointspec':1})
     # only select surface sensitivity
@@ -32,8 +32,12 @@ def process_per_pointspec(dset, x0,x1,y0,y1, height=None):
     
     dset = dset.rename({'latitude':'lat','longitude':'lon'})
 
-        # select output domain
+    # select output domain
     dset = dset.sel(lon=slice(x0,x1), lat=slice(y0,y1))
+
+    #interpolate flexdust to match flexpart coordinates
+    flexdust_ds = flexdust_ds.interp_like(dset)
+
 
     # Determine simulation start
     sim_start = pd.to_datetime(dset.iedate+dset.ietime)
@@ -64,9 +68,7 @@ def process_per_pointspec(dset, x0,x1,y0,y1, height=None):
         'lon':('lon',dset['spec001_mr'].lon, dset.lon.attrs), 
         'lat':('lat',dset['spec001_mr'].lat, dset.lat.attrs)},
         attrs=dict(
-            units=field_unit,
             spec_com=dset.spec001_mr.attrs['long_name'],
-            long_name=field_name
         ) 
                         )
 
@@ -86,6 +88,7 @@ def process_per_pointspec(dset, x0,x1,y0,y1, height=None):
         out_data[i] = temp_data.values*emission_field.values*scale_factor
         surface_sensitivity[i] = temp_data.values    
     
+    print('finish emsfield*sensitvity')
 
     return dset,out_data, surface_sensitivity
 
@@ -95,6 +98,7 @@ def process_per_timestep(dset, x0,x1,y0,y1, height=None):
         dset = dset.height.values
     else:
         height = height
+    scale_factor = (1/height)*1000
     print('creating output array')
     out_data = xr.zeros_like(dset['spec001_mr'])
     for i in range(out_data.time):
@@ -103,38 +107,41 @@ def process_per_timestep(dset, x0,x1,y0,y1, height=None):
         time_steps = temp_data.time + temp_data.btime 
         emission_field = flexdust_ds['Emission'].sel(time=time_steps)
         out_data[i] = temp_data.values*emission_field.values*scale_factor
+    print('finish emsfield*sensitvity')
     surface_sensitivity = dset['spec001_mr']
     return dset, out_data, surface_sensitivity
 
 
-def create_output(out_data, height, dset):
+def create_output(out_data, surface_sensitivity, dset):
     ind_receptor = dset.ind_receptor
     f_name, field_unit, sens_unit, field_name = determine_units(ind_receptor)
 
 
-    print('finish emsfield*sensitvity')
 
     terminal_input = ' '.join(sys.argv)
     
-    out_ds = xr.Dataset({f_name : out_data, 'surface_sensitivity' : surface_sensitvity ,'RELEND':dset.RELEND, 'RELSTART':dset.RELSTART, 
+    out_ds = xr.Dataset({f_name : out_data, 'surface_sensitivity' : surface_sensitivity ,'RELEND':dset.RELEND, 'RELSTART':dset.RELSTART, 
                         'ORO':dset.ORO, 'RELPART':dset.RELPART.sum(), 'RELZZ1':ds.RELZZ1[0],
                         'RELZZ2': dset.RELZZ2[0], 'RELLAT':dset.RELLAT1[0], 'RELLNG':dset.RELLNG1[0]
-                        ,'RELCOM':dset['RELCOM'].astype('U35', copy=False)}, attrs=dset.attrs)
+                        }, attrs=dset.attrs)
 
-    flexdust_ds.close()
-    ds.close()
+    dset[f_name].attrs['units'] = field_unit
+    dset[f_name].attrs['long_name'] = field_name
+    dset['surface_sensitivity'].attrs['units'] = sens_unit
     receptor_name = str(out_ds.RELCOM[0].values).strip().split(' ')[1]
 
     out_ds.attrs['title'] = 'FLEXPART/FLEXDUST model output'
     out_ds.attrs['references'] = 'https://doi.org/10.5194/gmd-12-4955-2019, https://doi.org/10.1002/2016JD025482'
     out_ds.attrs['history'] = '{} processed by {}, '.format(time.ctime(time.time()),terminal_input) + out_ds.attrs['history']
     out_ds.attrs['varName'] = f_name
-    shape_dset = out_ds[f_name].shape
-    encoding = {'zlib':True, 'complevel':9, 'chunksizes' : (1,10, shape_dset[2], shape_dset[3]),
-    'fletcher32' : False,'contiguous': False, 'shuffle' : False}
-    outFile_name = os.path.join(outpath,f_name + '_' + receptor_name + '_' + spec_com + '_' + out_ds.ibdate +'-'+ out_ds.iedate + '.nc')
-    print('writing to {}'.format(outFile_name))
-    out_ds.to_netcdf(outFile_name, encoding={f_name:encoding, 'surface_sensitivity':encoding})
+
+    file_name = f_name + '_' + receptor_name + '_' + spec_com + '_' + out_ds.ibdate +'-'+ out_ds.iedate + '.nc'
+    out_ds.attrs['filename'] = file_name
+
+    
+    
+    return out_ds
+    
 
 
 def determine_units(ind_receptor):
@@ -188,20 +195,21 @@ if __name__ == "__main__":
     # Check whether output is per time step or per release?
     ds = xr.open_dataset(pathflexpart)
     if 'pointspec' in ds.data_vars:
-        ds = process_per_pointspec(ds, flexdust_ds, x0, x1, y0, y1, height=height)
+        ds, out_data, surface_sensitivity = process_per_pointspec(ds, flexdust_ds, x0, x1, y0, y1, height=height)
+        ds.attrs['relcom'] = str(ds.RELCOM[0].values.astype('U35')).strip().split(' ')[1:]
     else:
-        ds = process_per_timestep(ds, flexdust_ds, x0, x1, y0, y1, height=height) 
+        ds, out_data, surface_sensitivity = process_per_timestep(ds, flexdust_ds, x0, x1, y0, y1, height=height) 
+    
+    out_ds = create_output(out_data,surface_sensitivity,ds)
 
-    #ds = xr.open_dataset(pathflexpart,chunks={'pointspec':1}
-
-
+    flexdust_ds.close()
+    ds.close()
     spec_com = ds.spec001_mr.attrs['long_name']
-
-
-    # Read flexdust output
-
-
-    # Interpolate into same coordinates as FLEXPART
-    flexdust_ds = flexdust_ds.interp_like(ds)
-    # Fill output Data arrary
-
+    f_name = out_ds.attrs['varName']
+    shape_dset = out_ds[f_name].shape
+    encoding = {'zlib':True, 'complevel':9, 'chunksizes' : (1,10, shape_dset[2], shape_dset[3]),
+    'fletcher32' : False,'contiguous': False, 'shuffle' : False}
+    outFile_name = os.path.join(outpath,out_ds.attrs['filename'])
+    print('writing to {}'.format(outFile_name))
+    out_ds.to_netcdf(outFile_name, encoding={f_name:encoding, 'surface_sensitivity':encoding})
+ 
