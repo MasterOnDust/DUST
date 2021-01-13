@@ -47,7 +47,6 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     btime_size = int(dset['LAGE']/lout_step*1e-9)
     lout_step_h = int(lout_step/(60*60))
     btime_array = -np.arange(lout_step_h,btime_size*lout_step_h+lout_step_h,lout_step_h)
-    print(btime_array)
     # Create new time forward time dimmension
     t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + dset['LAGE'].values
 
@@ -84,7 +83,6 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
         date1 = num2date(out_data[i].time + last_btime, time_units).strftime('%Y%m%d%H%M')
         temp_data = dset['spec001_mr'].sel(time=slice(date0, date1), pointspec=i)
         emission_field = flexdust_ds['Emission'].sel(time=temp_data.time)
-        #print(temp_data.time[0], emission_field.time[0])
         out_data[i] = temp_data.values*emission_field.values*scale_factor
         surface_sensitivity[i] = temp_data.values    
     
@@ -114,7 +112,6 @@ def process_per_timestep(dset, flexdust_ds,x0,x1,y0,y1, height=None):
         height = dset.height.values
     else:
         height = height
-    print(height)
     scale_factor = (1/height)*1000
     print('creating output array')
     out_data = xr.zeros_like(dset['spec001_mr'])
@@ -214,7 +211,6 @@ if __name__ == "__main__":
     y0 = args.y0
     height = args.height
     
-    print(outpath)
     flexdust_ds = DUST.read_flexdust_output(pathflexdust)['dset']
     flexdust_ds = flexdust_ds.sel(lon=slice(x0,x1), lat=slice(y0,y1))
     # Check whether output is per time step or per release?
