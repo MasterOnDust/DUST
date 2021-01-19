@@ -24,7 +24,7 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     if height == None:
         dset = dset.isel(height=0)
     else:
-        height = dset.sel(height=height)
+        dset = dset.sel(height=height)
     height = dset.height.values
     dset = dset.sel(nageclass=0)
     # rename variables
@@ -48,7 +48,7 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     # Create new time forward time dimmension
     t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + dset['LAGE'].values
 
-    time_a = np.arange(0,len(dset['pointspec'])*3,3)
+    time_a = np.arange(0,len(dset['pointspec'])*lout_step_h,lout_step_h)
     time_var = xr.Variable('time',time_a, 
                     attrs=dict(units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%S')),
                     calendar="proleptic_gregorian"))
@@ -77,11 +77,12 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     time_units = out_data.time.units
 
     for i in range(len(out_data.time)):
-        date0 = num2date(out_data[i].time + first_btime, time_units).strftime('%Y%m%d%H%M')
-        date1 = num2date(out_data[i].time + last_btime, time_units).strftime('%Y%m%d%H%M')
+        date0 = num2date(out_data[i].time + first_btime, time_units).strftime('%Y%m%d%H%M%S')
+        date1 = num2date(out_data[i].time + last_btime, time_units).strftime('%Y%m%d%H%M%S')
         temp_data = dset['spec001_mr'].sel(time=slice(date0, date1), pointspec=i)
         emission_field = flexdust_ds['Emission'].sel(time=temp_data.time)
-        out_data[i] = temp_data.values*emission_field.values*scale_factor
+        
+        out_data[i] = (temp_data*emission_field).values*scale_factor
         surface_sensitivity[i] = temp_data.values    
     
     print('finish emsfield*sensitvity')
