@@ -16,18 +16,22 @@ def test_region_slicing():
     assert pre_ds.sum().values == ns_pre_ds.sum().values
 
 def test_multiplication():
-    scalefactor=10
+    HEIGHT=100
+    POINTSPEC=3
+    BTIME=5
+    scale_factor = (1/HEIGHT)*1000
     fds= create_flexdust_test_data(seed=None)
     fpds = create_test_data(seed=None)
     
     ds_orr,pre_ds, out_data = process_per_pointspec(fpds,fds,
-                        x0=None, x1=None, y0=None,y1=None,height=100)
+                        x0=None, x1=None, y0=None,y1=None,height=HEIGHT)
     produced_ds = xr.decode_cf(pre_ds.to_dataset(name='spec001_mr'))
     fpds = fpds.rename({'latitude':'lat','longitude':'lon'})
-    produced_ds=produced_ds.isel(time=0, btime=0)
+    
+    produced_ds=produced_ds.isel(time=POINTSPEC, btime=BTIME)
     test_time=produced_ds.time+produced_ds.btime
     
-    fpds=fpds.sel(time='2000-03-19T18:00:00.000000000', pointspec=0, height=100, nageclass=0)['spec001_mr']
-    fds=fds.sel(time='2000-03-19T18:00:00.000000000')['Emission']
-    fpds_times_fds = (fpds*fds).values*scalefactor
-    assert pytest.approx(produced_ds['spec001_mr'].sum(dim=['lon','lat']).values,0.1) == fpds_times_fds.sum()
+    fpds=fpds.sel(time=test_time.values, pointspec=POINTSPEC, height=HEIGHT, nageclass=0)['spec001_mr']
+    fds=fds.sel(time=test_time.values)['Emission']
+    fpds_times_fds = (fpds*fds).values*scale_factor
+    assert pytest.approx(produced_ds['spec001_mr'].sum(dim=['lon','lat']).values,0.01) == fpds_times_fds.sum()
