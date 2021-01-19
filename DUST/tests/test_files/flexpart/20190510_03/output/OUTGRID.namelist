@@ -1,0 +1,9 @@
+ &OUTGRID
+ OUTLON0 =   60.00000    ,
+ OUTLAT0 =   30.00000    ,
+ NUMXGRID        =         680,
+ NUMYGRID        =         320,
+ DXOUT   =  0.1000000    ,
+ DYOUT   =  0.1000000    ,
+ OUTHEIGHTS      =   100.0000    ,   500.0000    ,   1000.000    ,   5000.000    
+ /
