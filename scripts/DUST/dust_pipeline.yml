@@ -1,0 +1,19 @@
+name: DUST_pipeline
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - numpy
+  - jupyter
+  - jupyterlab
+  - matplotlib
+  - python >=3.5
+  - pytest
+  - pandas
+  - xarray
+  - dask
+  - scipy
+  - cartopy
+  - seaborn
+  - snakemake
+  - pip
