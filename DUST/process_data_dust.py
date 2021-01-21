@@ -71,7 +71,6 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
 
     surface_sensitivity = out_data.copy()
     scale_factor = (1/height)*1000
-    #result=[]
     last_btime = out_data.btime[-1]
     first_btime =out_data.btime[0]
     time_units = out_data.time.units
@@ -157,10 +156,7 @@ def create_output(out_data, surface_sensitivity, dset):
     spec_com = out_ds.attrs['relcom'][1]
     file_name = f_name + '_' + receptor_name + '_' + spec_com + '_' + out_ds.ibdate +'-'+ out_ds.iedate + '.nc'
  
-    out_ds.attrs['filename'] = file_name
-
-
-    
+    out_ds.attrs['filename'] = file_name 
     return out_ds
 
 def determine_units(ind_receptor):
