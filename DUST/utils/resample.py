@@ -57,7 +57,7 @@ def concatenate_monthly(dsets):
     out_dset.attrs['ietime']=dsets[-1].attrs['ietime']
     out_dset['time'].attrs = dict(units='hours since 1900-01-01 00:00:00.0',calendar='gregorian')
     fname= (out_dset.attrs['varName']+'_monthly-mean_'+'_'.join(out_dset.attrs['relcom'])
-                        +out_dset.attrs['ibdate'][:6]+'-'+out_dset.attrs['iedate']+'.nc')
+                       +'_'+out_dset.attrs['ibdate'][:6]+'-'+out_dset.attrs['iedate']+'.nc')
     out_dset.attrs['filename']=fname
     return out_dset    
 
