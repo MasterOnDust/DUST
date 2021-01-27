@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 ##############################################################################
 # This is for concatenating FLEXPART output from simulations setup according #
