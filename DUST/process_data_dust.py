@@ -92,7 +92,7 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
         'RELZ2' : dset['RELZZ2'][0],
         'RELPART' : dset['RELPART'].sum(keep_attrs=True)
         })
-    
+
     dset.attrs['ibdate'] = t0.strftime('%Y%m%d')
     dset.attrs['ibtime'] = t0.strftime('%H%M%S')
     receptor_name = str(dset.RELCOM[0].values).strip().split(' ')[1:]
