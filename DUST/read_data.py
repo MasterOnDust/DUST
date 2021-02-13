@@ -1,5 +1,3 @@
-
-from inspect import istraceback
 import os
 import pandas as pd
 import numpy as np
@@ -24,7 +22,7 @@ Standard conventions:
 xr.set_options(keep_attrs=True)
 
 def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,ldirect=-1,
-                                    height=None, location=None,**dset_kwargs):
+                                    height=None, location=None,parallel=False,**dset_kwargs):
     """
     DESCRIPTION
     ===========
@@ -49,7 +47,7 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
 
 
         todo:: I don't know really whats the best way to concatenated netCDF files using xarray
-                So, currently this fuction feel very slow and not particularly robust, but it might
+                So, currently this fuction feels very slow and not particularly robust, but it might
                 work fine for concatinating few files. At the moment it is better to first run concat_output.py
                 , which create the a concatinated netCDF file of the output with the correct formatting and
                 then to the analysis of the output.
@@ -64,7 +62,6 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
             nc_files = [path+row['dir_paths'] + '/'+ row['ncfiles'] for index,row in df.iterrows()]
         except FileNotFoundError:
             nc_files = glob.glob(path + "**/output/grid*.nc", recursive=True) #recursively find FLEXPART output files
-    
     if time_step==None:
         # determine timestep of forward time dimmension based on file name
         time_step = int(int(nc_files[1].split('/')[-1].split('_')[-1][9])-int(nc_files[0].split('/')[-1].split('_')[-1][9]))
@@ -74,7 +71,9 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
     prep_func = partial(prepare_flexpart_dataset,dataVars=data_Vars,ldirect=ldirect)
     if isinstance(data_Vars, list)==False:
         data_Vars = [data_Vars]
-    dsets = xr.open_mfdataset(nc_files,concat_dim='time', decode_times=False, data_vars=data_Vars, combine='nested',parallel=True, preprocess=prep_func, **dset_kwargs)
+    dsets = xr.open_mfdataset(nc_files,concat_dim='time', decode_times=False,
+                              data_vars=data_Vars,
+                              combine='nested',parallel=parallel, preprocess=prep_func, **dset_kwargs)
     if height !=None:
         dsets= dsets.sel(height=height)
     else:
@@ -86,17 +85,15 @@ def read_multiple_flexpart_outputs(path, data_Vars='spec001_mr', time_step=None,
     dsets.attrs['source'] = dsets.attrs['source'] + ', concatenated by DUST.read_data.read_multiple_flexpart_output'
     dsets.time.attrs['units'] = 'hours since {}'.format(pd.to_datetime(dsets.iedate + dsets.ietime).strftime('%Y-%m-%d %H:%M'))
     dsets = xr.decode_cf(dsets, decode_times=True)
-    #embed()
-
-    dsets['RELCOM'] = dsets['RELCOM'].astype('U35')
+    if 'RELCOM' in dsets.data_vars:
+        dsets['RELCOM'] = dsets['RELCOM'].astype('U35')
+    else:
     # Make sure RELCOM does not disappear!
-    #ds = xr.open_dataset(nc_files[0])
-    #relcom = ds.RELCOM.copy().astype('U35')
-    #relcom_dis = ds.RELCOM.attrs
-    #dsets = dsets.assign(RELCOM=relcom)
-    #dsets['RELCOM'].attrs = relcom_dis
-
-    # embed()
+        ds = xr.open_dataset(nc_files[0]).sel(numpoint=location,pointspec=location)
+        relcom = ds.RELCOM.copy().astype('U35')
+        relcom_dis = ds.RELCOM.attrs
+        dsets = dsets.assign(RELCOM=relcom)
+        dsets['RELCOM'].attrs = relcom_dis
     return dsets
 
 def read_flexpart_metadata(path_output_folder):

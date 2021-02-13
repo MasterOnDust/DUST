@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import os
-from DUST.read_data import read_multiple_flexpart_outputs
+import DUST.read_data as rd
 import numpy as np
 import sys
 import argparse as ap
 from IPython import embed
+import xarray 
 
 def slice_data(dset, x0, x1, y0, y1):
     dset = dset.sel(lon=slice(x0,x1),lat=slice(y0,y1))
@@ -29,7 +30,7 @@ def prepare_output_dataset(dset, height, point, fileName=None):
                                         d0.values, d1.values)
     dset.attrs['relcom'] = Loc_name
     dset[dset.varName] = dset[dset.varName].astype(np.float32)
-    dset.attrs['source'] = dset.attrs['source'] + ' '.join(nc_files)
+    dset.attrs['history'] = dset.attrs['history'] + ' '.join(nc_files)
     dset.attrs['filename']=file_name
     return dset
 
@@ -62,9 +63,12 @@ if __name__ == "__main__":
     height = args.height
     # Load the netCDF files
     print(len(nc_files))
-    dset = read_multiple_flexpart_outputs(nc_files, height=height,
+    try:
+        dset = rd.read_multiple_flexpart_outputs(nc_files, height=height,
                                           location=location, parallel=True,
                                           chunks={'pointspec':1, 'height':1})
+    except xarray.core.merge.MergeError:
+        embed()
     dset = slice_data(dset, x0, x1, y0,y1)
     dset=prepare_output_dataset(dset, height, location)
     shape_dset = dset[dset.varName].shape

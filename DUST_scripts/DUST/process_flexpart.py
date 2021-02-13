@@ -45,8 +45,8 @@ if __name__ == "__main__":
     if 'pointspec' in ds.dims:
         print('per receptor point')
         ds, out_data, surface_sensitivity = process_per_pointspec(ds, flexdust_ds, x0, x1, y0, y1, height=height)
-        ds.attrs['relcom'] = str(ds.RELCOM[0].values.astype('U35')).strip().split(' ')[1:]
-
+        relcom_str=str(ds.RELCOM[0].values.astype('U35')).strip().split(' ',2)[1:]
+        ds.attrs['relcom']=[s.strip() for s in relcom_str]
     else:
         print('per timestep')
         ds, out_data, surface_sensitivity = process_per_timestep(ds, flexdust_ds, x0, x1, y0, y1, height=height) 
