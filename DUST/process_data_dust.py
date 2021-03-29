@@ -70,7 +70,7 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
                         )
 
     surface_sensitivity = out_data.copy()
-    scale_factor = (1/height)*1000
+    scale_factor = (1/height*lout_step)*1000 # Units of FLEXDUST need to be kg/m^3s
     last_btime = out_data.btime[-1]
     first_btime =out_data.btime[0]
     time_units = out_data.time.units
