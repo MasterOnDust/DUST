@@ -6,11 +6,16 @@ import numpy as np
 
 def resample_monthly(dset, squeeze_numpoint=True):
     """
-    dset : List of xarray dataset
+    dset : xarray dataset
 
     """
     with xr.set_options(keep_attrs=True):
-        dset = dset.sum(dim='btime').mean(dim='time')
+        if dset.ind_receptor==4 or dset.ind_receptor==3:
+            # Depostion is accumulative
+            dset = dset.sum(dim='btime').sum(dim='time')
+        else:
+            # Concentration is not accumulative
+            dset = dset.sum(dim='btime').mean(dim='time')
     if squeeze_numpoint:
         if 'numpoint' in dset.dims:
             for data_var in dset.data_vars:

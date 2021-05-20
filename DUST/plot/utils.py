@@ -1,6 +1,8 @@
 import numpy as np
 from matplotlib.colors import ListedColormap
-
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib as mpl
+from matplotlib.ticker import LogFormatterSciNotation
 def _gen_log_clevs(dat_min, dat_max):
     """Creates a logarithmic color scale."""
 
@@ -22,6 +24,21 @@ def _gen_log_clevs(dat_min, dat_max):
     clevs = np.logspace(dmn, dmx, 100)
 
     return clevs
+def _add_colorbar(im,cticks=None,label='', fmt='%d', log=False):
+    """Adds Colorbar Nicely to figure"""
+    ax = im.axes
+    fig = ax.figure
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3.5%", pad=0.05, axes_class=mpl.pyplot.Axes)
+    if log:
+        formatter = LogFormatterSciNotation(10, labelOnlyBase=False)
+    else:
+        formatter = fmt
+
+    if isinstance(cticks,np.ndarray):
+        fig.colorbar(im,ax=ax,cax=cax,label=label, format=formatter, ticks=cticks)
+    else:
+        fig.colorbar(im,ax=ax,cax=cax,label=label, format=formatter)
 
 
 def _gen_flexpart_colormap(ctbfile=None, colors=None):

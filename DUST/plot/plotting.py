@@ -1,4 +1,4 @@
-
+import cartopy
 import cartopy as cr
 import cartopy.crs as ccrs
 
@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.dates as mdates
 
-from .utils import _gen_log_clevs, _gen_flexpart_colormap
+from .utils import _gen_log_clevs, _gen_flexpart_colormap, _add_colorbar
 
 import numpy as np
 import xarray as xr
@@ -18,7 +18,8 @@ mpl.rcParams['axes.titlesize'] = 'x-large'
 mpl.rcParams['axes.labelsize'] = 'large'
 mpl.rcParams['xtick.labelsize'] = 'medium'
 mpl.rcParams['ytick.labelsize'] = 'medium'
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#825f87", "#5f34e7", "#d3494e", "#464196", "#017371", "#ff9a8a", "#fa2a55", "#13eac9"])
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#825f87", "#5f34e7", "#d3494e", "#464196", 
+                                                    "#017371", "#ff9a8a", "#fa2a55", "#13eac9"])
 xr.set_options(keep_attrs=True)
 
 def plot_emission_time_series(dset,
@@ -90,16 +91,20 @@ def plot_emission_sensitivity(dset,
 
     """
     if ax == None:
-        ax = plt.axes(projection=projection)
+        if isinstance(plt.gca(),cartopy.mpl.geoaxes.GeoAxesSubplot):
+            ax =plt.gca()
+        else:
+            ax = plt.axes(projection=ccrs.PlateCarree())
+        
+
     if extent:
         ax.set_extent(extent)
 
     if var_Name==None:
         dataarray=dset[dset.varName]
     else:
-        dataarray=dset[var_Name]
-    
-    mpl_base_map_plot_xr(dataarray, ax=ax,
+        dataarray=dset[var_Name]  
+    im = mpl_base_map_plot_xr(dataarray, ax=ax,
                                 plotting_method=plotting_method,
                                 vmin=vmin, vmax=vmax, **kwargs
                                 )
@@ -118,18 +123,51 @@ def plot_emission_sensitivity(dset,
         elif ind_receptor == 3:
             title = 'Wet depostion'
         ax.set_title('FLEXPART {} simulation'.format(title))
-    if info_dict:
+    if isinstance(info_dict,dict):
         info_dict = info_dict
+        create_info_str(ax, info_dict, info_loc)
+    elif info_dict==False:
+        pass
     else:
         info_dict = {
-            'Version': dset.attrs['version'],
+            'Version': dset.attrs['source'],
             'ldirect' : dset.attrs['ldirect']
         }
+        create_info_str(ax, info_dict, info_loc)
+
+    
+    return im
 
 
-    create_info_str(ax, info_dict, info_loc)
-    return ax
+def plot_log_anomaly(dataarray,
+                    linthresh,
+                    vmin,
+                    vmax,
+                    ax=None,
+                    colorbar=True,
+                    base=10,
+                    linscale=1,
+                    lower_bound=None,
+                    upper_bound=None,
+                    cbar_label='',
+                    **kwargs):
 
+    """
+    DESCRIPTION
+    ===========
+        Plot the source contribution/emission sensitivity logarithmic with diverging scale 
+
+    """
+    norm=mpl.colors.SymLogNorm(linthresh=linthresh, linscale=linscale,vmin=vmin,vmax=vmax,base=base)
+    if lower_bound==None:
+        lower_bound=dataarray.min()
+    if upper_bound==None:
+        upper_bound=dataarray.max()
+
+    dataarray = dataarray.where((dataarray > upper_bound) | (dataarray < lower_bound))
+
+    im = mpl_base_map_plot_xr(dataarray,ax,norm=norm,colorbar=colorbar,cbar_label=cbar_label,log=False,**kwargs)
+    return im
 
 def create_info_str(ax,info_dict, loc):
     info_str = ''
@@ -145,10 +183,11 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
                     log = True,
                     vmin = None,
                     vmax = None,
-                    mark_receptor = False,
                     colorbar =True,
                     cmap = None,
-                    projection=ccrs.PlateCarree(),
+                    clevs = None,
+                    norm = None,
+                    cbar_label='',
                     **kwargs):
     """
     DESCRIPTION
@@ -167,7 +206,7 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
 
     attrs = dataarray.attrs
     if ax ==None:
-        ax = plt.axes(projection=projection)
+        ax = plt.gca()
 
 
     if cmap == None:
@@ -193,23 +232,26 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
     if log:
         levels = _gen_log_clevs(dat_min, dat_max)
         norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
+    elif norm:
+        norm = norm
+        log=True
     else:
         levels = list(np.arange(dat_min, dat_max, (dat_max - dat_min) / 100))
         norm = None
 
     if plotting_method == 'pcolormesh':
-        xr.plot.pcolormesh(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,cmap=cmap,
+        im = dataarray.plot.pcolormesh(ax=ax, norm=norm,cmap=cmap, add_colorbar=False,
                     **kwargs)
-
     elif plotting_method =='contourf':
-        xr.plot.contourf(dataarray,ax=ax, norm=norm, add_colorbar=colorbar,cmap=cmap,
+        im = dataarray.plot.contourf(ax=ax, norm=norm, cmap=cmap,add_colorbar=False,
                     **kwargs)
 
     else:
         raise ValueError("`method` param '%s' is not a valid one." % plotting_method)
+    if colorbar:
+        _add_colorbar(im,clevs, log=log, label=cbar_label)
 
-    return ax
-
+    return im
 
 
     

@@ -7,8 +7,6 @@ import dask
 from .utils.read_utils import read_command_namelist, read_outGrid_namelist, read_release_namelist, read_flex_dust_summary
 from .utils.utils import _fix_time_flexdust
 from functools import partial
-from IPython import embed
-
 """
 This file contain functions for preparing data for analysis
 
