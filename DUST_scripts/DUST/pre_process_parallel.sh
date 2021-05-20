@@ -9,20 +9,42 @@
 shopt -s extglob
 shopt -s globstar
 
-export PATH=$PATH:~/DUST_scripts/scripts/DUST
+export PATH=$PATH:/projects/NS2806K/ovewh/DUST/DUST_scripts/DUST
 
-DATAPATH='/projects/NS2806K/ovewh/tracing_the_winds/flexpart/FLEXPART_spring/emission_sensitivities/'
-OUTPATH='/projects/NS2806K/ovewh/tracing_the_winds/flexpart/FLEXPART_spring/source_contribution_final'
+DATAPATH='/projects/NS2806K/ovewh/tracing_the_winds/flexpart/production_run/'
+OUTPATH='/projects/NS2806K/ovewh/tracing_the_winds/flexpart/production_run/source_contribution'
 PATHFLEXDUST='/projects/NS2806K/ovewh/tracing_the_winds/FLEXDUST_emission_flux/FLEXDUST1999_2019/'
-SUBDIRS=('DryDep' 'WetDep')
-
-[[ -d ${OUTPATH} ]] || mkdir ${OUTPATH}
-
-#SUBDIRS=('Conc')
+SUBDIRS=('drydep' 'wetdep')
 
 ps=('20micron' '2micron')
 
-#liocations=('SACOL' 'BADOE' 'YINCHUAN' 'LINGTAI' 'LUOCHUAN' 'LANTIAN' 'SHAPOTOU')
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+    arg="$1"
+    case $arg in
+        -op|--out_path)
+        OUTPATH="$2"
+        shift #past agrument
+        shift #past value
+        ;;
+        -dp|--data_path)
+        DATAPATH="$2"
+        shift
+        shift
+        ;;
+        -sd|--sub_dir)
+        SUBDIRS="$2"
+        shift
+        shift
+        ;;
+    esac
+done
+
+echo "Processing data in ${DATAPATH}"
+echo "Output stored at :${OUTPATH}"
+echo "Sub dir : ${SUBDIRS}"
 
 
 proc_output () {
@@ -32,10 +54,16 @@ proc_output () {
 
 N=2 #Number of processes to run the background at one time
 
+[[ -d ${OUTPATH} ]] || mkdir ${OUTPATH}
+
+echo ${SUBDIRS}
+
 for dir in "${SUBDIRS[@]}"; do
+echo ${dir}
 [[ -d ${OUTPATH}/${dir}  ]] || mkdir ${OUTPATH}/${dir}  
    for size in "${ps[@]}"; do
        [[ -d ${OUTPATH}/${dir}/${size} ]] || mkdir ${OUTPATH}/${dir}/${size}
+       
        cd  ${DATAPATH}${dir}/${size}
        for year in {1999..2019}; do
            [[ -d ${OUTPATH}/${dir}/${size}/${year} ]] || mkdir ${OUTPATH}/${dir}/${size}/${year}
