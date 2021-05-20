@@ -104,7 +104,7 @@ def plot_emission_sensitivity(dset,
         dataarray=dset[dset.varName]
     else:
         dataarray=dset[var_Name]  
-    mpl_base_map_plot_xr(dataarray, ax=ax,
+    im = mpl_base_map_plot_xr(dataarray, ax=ax,
                                 plotting_method=plotting_method,
                                 vmin=vmin, vmax=vmax, **kwargs
                                 )
@@ -123,17 +123,20 @@ def plot_emission_sensitivity(dset,
         elif ind_receptor == 3:
             title = 'Wet depostion'
         ax.set_title('FLEXPART {} simulation'.format(title))
-    if info_dict:
+    if isinstance(info_dict,dict):
         info_dict = info_dict
+        create_info_str(ax, info_dict, info_loc)
+    elif info_dict==False:
+        pass
     else:
         info_dict = {
             'Version': dset.attrs['source'],
             'ldirect' : dset.attrs['ldirect']
         }
+        create_info_str(ax, info_dict, info_loc)
 
-
-    create_info_str(ax, info_dict, info_loc)
-    return ax
+    
+    return im
 
 
 def plot_log_anomaly(dataarray,
@@ -180,7 +183,6 @@ def mpl_base_map_plot_xr(dataarray, ax=None,
                     log = True,
                     vmin = None,
                     vmax = None,
-                    mark_receptor = False,
                     colorbar =True,
                     cmap = None,
                     clevs = None,
