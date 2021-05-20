@@ -70,7 +70,12 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
                         )
 
     surface_sensitivity = out_data.copy()
-    scale_factor = (1/height*lout_step)*1000 # Units of FLEXDUST need to be kg/m^3s
+    if dset.ind_receptor == 3 or dset.ind_receptor == 4:
+        scale_factor = (1/(height))*1000 # Depostion is accumulative 
+    else:
+        # Concentration is not  accumulative Units of FLEXDUST need to be kg/m^3s
+        scale_factor = (1/(height*lout_step))*1000 
+    # print(scale_factor)
     last_btime = out_data.btime[-1]
     first_btime =out_data.btime[0]
     time_units = out_data.time.units
@@ -171,12 +176,12 @@ def determine_units(ind_receptor):
         field_name = 'Concentration'
     elif ind_receptor == 4:
         f_name = 'drydep'
-        field_unit = 'g/m^2 s'
+        field_unit = 'g/m^2'
         sens_unit = 'm'
         field_name = 'Dry depostion'
     elif ind_receptor == 3:
         f_name = 'wetdep'
-        field_unit = 'g/m^2 s'
+        field_unit = 'g/m^2'
         sens_unit = 'm'
         field_name = 'Wet depostion'
     else:
