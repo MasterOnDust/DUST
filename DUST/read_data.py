@@ -236,14 +236,19 @@ def read_flexpart_trajectories(path_to_top_directory, nclusters=5, skip_rows=24)
 
 def read_flexdust_output(path_output, **xarray_kwargs):
     """
-    DESCRIPTION
+    DESCRIPTION:
     ===========
         Takes in a path to a FLEXDUST output folder/output file.
         If path directly to the FLEXDUST output file is provided then xarray.dataset is returned
         otherwise return a python dictionary, contaning the information in the summary file and
         a xarray.dataset
+    
+    ARGUMENTS:
+    ==========
+        path_output: str
+            Path to where the FLEXDUST output is stored.d
 
-    USAGE
+    USAGE:
     =====
         fd = read_flexdust_output(path_output)
 
@@ -264,11 +269,11 @@ def read_flexdust_output(path_output, **xarray_kwargs):
                 outdir['Summary'] = summary_dir
             else:
                 continue
-    if len(outdir.keys()) == 1:
-        key = [key for key in outdir.keys()][0]
-        return outdir[key]
-    else:
-        return outdir
+    #if len(outdir.keys()) == 1:
+    #    key = [key for key in outdir.keys()][0]
+    #    return outdir[key]
+    #else:
+    return outdir
 
 def read_flexpart_output(path_output, dataVars='spec001_mr',ldirect=-1,**dset_kwargs):
     """
@@ -277,18 +282,27 @@ def read_flexpart_output(path_output, dataVars='spec001_mr',ldirect=-1,**dset_kw
 
         Read flexpart netcdf output file and prepare the dataset for further analysis.
 
+    ARGUMENTS:
+    ==========    
+        path_output : str 
+            path to netCDF file containing flexpart output
+        
+    KEYWORD ARGUMENTS:
+    =================
+        dataVars: str,
+            name of datavariable to read
+        ldirect: str,
+            which direction the FLEXPART is run
+        dset_kwargs: dict
+            dictionary of key word arguments for xr.open_dataset()
+
+        
+    
     USAGE
     =====
 
         dset = read_flexpart_output(path_output)
-
-        Arguments:
-        
-            path_output : path to netCDF file containing flexpart output
-        
-        Optional arguments:
-
-        
+    
     """
 
     dset = xr.open_dataset(path_output, decode_times=False, **dset_kwargs)
