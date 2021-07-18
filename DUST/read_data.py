@@ -331,18 +331,6 @@ def prepare_flexpart_dataset(dset,dataVars='spec001_mr',ldirect=-1):
         dset.btime.attrs['units'] = 'hours'
         dset.btime.attrs['long_name'] = 'time along back trajectory'
         dset = dset.assign_attrs({'varName':dataVars})
-
-
-
-
-    # dset = dset.swap_dims({'numpoint':'pointspec'})
-    # print(dset.RELCOM.str.strip().str.decode('utf-8'))
-    # relcoms = dset.RELCOM.str.strip().str.decode('utf-8')
-    # dset = dset.assign(RELCOM = xr.DataArray(relcoms, dims=('pointspec'),
-    #                 coords={'pointspec' : relcoms},
-    #               attrs={'long_name':'release point name'}))
-    # dset = dset.rename(pointspec='point')
-    # dset.point.attrs['long_name'] =  'Name of release location'
     dset = dset.rename({'longitude':'lon', 'latitude':'lat'})
 
 

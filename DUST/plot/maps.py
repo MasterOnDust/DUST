@@ -130,7 +130,7 @@ def map_terrain_china(ax=None):
 
 
 def map_china(ax=None, lakes_and_rivers=False, xticks =[80, 90, 100, 110],
-                yticks=[30, 35, 40, 45, 50]):
+                yticks=[30, 35, 40, 45, 50], ):
     """
     DESCRIPTION
     ===========
