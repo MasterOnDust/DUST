@@ -10,13 +10,51 @@ AUTHOR Ove Haugvaldstad
 
 This file containts functions for processing data for working with FLEXDUST and FLEXPART model output
 
-Applied for data processing 
-
-
 """
 
 
 def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
+    """
+    DESCRIPTION:
+    ===========
+        Combines FLEXPART backward simulation output and with FLEXDUST emission field. 
+        For FLEXPART output stored in a per pointspec format. Meaning that each FLEXPART 
+        simulation has to only contain on recepotor point and the forward time dimension
+        is defined by specifying a new release. 
+
+    ARGUMENTS:
+    ==========
+        dset: xarray.dataset
+            dataset containing FLEXPART model output
+        flexdust_ds: xarray.dataset
+            dataset containing FLEXDUST emission fields.
+        x0: float
+            longitude of lower left corner of cutout.
+        x1: float
+            longtude of upper right corner of cutout.
+        y0: float
+            latitude of lower left corner of cutout.
+        y1: float 
+            latidue of upper left corner of cutout. 
+    KEYWORD ARGUMENTS:
+    ==================
+        height: int (default=None)
+            Which height in the FLEXPART output to multiply with the FLEXDUST
+            emissions fields. If None then the lowerst layer output layer is 
+            selected. 
+    
+    RETURN:
+    =======
+        dset: xarray.Dataset
+            Cleaned up input dataset.
+        out_data: xarray.DataArray
+            DataArray contatining FLEXPART and FLEXDUST multiplied.
+        surface_sensitivity: xarray.DataArray
+            DataArray conataining the senstivity of the lower FLEXPART 
+            output layer.
+            
+    """
+
     
     dset = dset.drop_vars(['WD_spec001', 'DD_spec001'])
     dset = dset.chunk({'pointspec':1})
@@ -73,7 +111,7 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     if dset.ind_receptor == 3 or dset.ind_receptor == 4:
         scale_factor = (1/(height))*1000 # Depostion is accumulative 
     else:
-        # Concentration is not  accumulative Units of FLEXDUST need to be kg/m^3s
+        # Concentration is not  accumulative Units of FLEXDUST need to be g/m^3s
         scale_factor = (1/(height*lout_step))*1000 
     # print(scale_factor)
     last_btime = out_data.btime[-1]
@@ -137,6 +175,28 @@ def process_per_timestep(dset, flexdust_ds,x0,x1,y0,y1, height=None):
 
 
 def create_output(out_data, surface_sensitivity, dset):
+    """
+    DESCRIPTION:
+    ============
+        Setup the output dataset format
+    
+    ARGUMENTS:
+    ==========
+        out_data: xarray.DataArray
+            DataArray containing the combined FLEXPART and FLEXDUST output
+        surface_sensitivity: xarray.DataArray
+            DataArray contatining the FLEXPART emission sensitivity of the lower most 
+            output layer
+        dset: xarray.Dataset
+            Output dataset
+    RETURN:
+    =======
+
+        output_ds:xarray.Dataset
+            Complete output dataset with CF convensions applied. 
+
+    """
+
     ind_receptor = dset.ind_receptor
     f_name, field_unit, sens_unit, field_name = determine_units(ind_receptor)
 
@@ -165,7 +225,7 @@ def create_output(out_data, surface_sensitivity, dset):
     return out_ds
 
 def determine_units(ind_receptor):
-    """
+    """ 
     Determine units of FLEXPART output
     """
 
