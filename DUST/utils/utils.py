@@ -88,7 +88,7 @@ def region_slice(dset, x0=None, x1=None
 def _fix_time_flexdust(ncfile,**xarray_kwargs):
     """Fixes the time in FLEXDUST"""
     dset = xr.open_dataset(ncfile, decode_times=False,**xarray_kwargs)
-    if dset.attrs.get('Date',None) == None:
+    if dset.time.attrs.get('units',None) != None:
         dset = xr.decode_cf(dset)
     else:
         s_date = dset.startdate.values 

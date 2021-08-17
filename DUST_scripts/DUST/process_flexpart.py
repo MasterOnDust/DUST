@@ -37,18 +37,19 @@ if __name__ == "__main__":
     y1 = args.y1
     y0 = args.y0
     height = args.height
-    
     flexdust_ds = DUST.read_flexdust_output(pathflexdust)['dset']
     flexdust_ds = flexdust_ds.sel(lon=slice(x0,x1), lat=slice(y0,y1))
     # Check whether output is per time step or per release?
     ds = xr.open_dataset(pathflexpart)
     if 'pointspec' in ds.dims:
         print('per receptor point')
+        ds = xr.open_dataset(pathflexpart, chunks={'time':50, 'pointspec':20})
         ds, out_data, surface_sensitivity = process_per_pointspec(ds, flexdust_ds, x0, x1, y0, y1, height=height)
         relcom_str=str(ds.RELCOM[0].values.astype('U35')).strip().split(' ',2)[1:]
         ds.attrs['relcom']=[s.strip() for s in relcom_str]
     else:
         print('per timestep')
+        ds = xr.open_dataset(pathflexpart, chunks={'time':50})
         ds, out_data, surface_sensitivity = process_per_timestep(ds, flexdust_ds, x0, x1, y0, y1, height=height) 
     
     out_ds = create_output(out_data,surface_sensitivity,ds)
