@@ -1,11 +1,10 @@
-import IPython
-from IPython.terminal.embed import embed
 import numpy as np
 import xarray as xr
 import sys
 from netCDF4 import date2num, num2date
 import pandas as pd
 import time
+import dask
 
 """
 AUTHOR Ove Haugvaldstad
@@ -88,6 +87,10 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     # Create new time forward time dimmension
     t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + pd.to_timedelta(dset['LAGE'].values, unit='ns')
     # Assumes that the first part of the RELCOM string contains the date. 
+    if isinstance(dset.RELCOM.values[0],np.bytes_):
+        dset = dset.assign(RELCOM=dset.RELCOM.astype(str))
+
+
     time_a = pd.to_datetime([date.split(' ')[0] for date in dset.RELCOM.values],format='%Y%m%d%H').to_pydatetime()
     time_a = date2num(time_a,units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%S')))
     time_var = xr.Variable('time',time_a, 
@@ -127,16 +130,16 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     surf_sense_da = surface_sensitivity['surface_sensitivity']
     out_data_da = out_data['spec001_mr']
     for i,ftime in enumerate(out_data.time):
-        
-        date0 = str((ftime - pd.to_timedelta('{}h'.format(lout_step_h))).dt.strftime('%Y%m%d%H%M%S').values)
-        date1 = str((ftime + pd.to_timedelta('{}h'.format(last_btime.values))).dt.strftime('%Y%m%d%H%M%S').values)
-        t_stamps = pd.date_range(date1, date0, freq='{}H'.format(lout_step_h))
-        temp_data = dset.sel(time=t_stamps)
-        temp_data = temp_data.isel(pointspec=i,numpoint=i)
-        temp_data = temp_data['spec001_mr']
-        emission_field = flexdust_ds['Emission'].sel(time=t_stamps)
-        out_data_da[i] = re_map((temp_data*emission_field)*scale_factor, out_data_da[i].time,out_data_da[i].btime)
-        surf_sense_da[i] = re_map(temp_data,out_data_da[i].time,out_data_da[i].btime)    
+        with dask.config.set(**{'array.slicing.split_large_chunks': False}):
+            date0 = str((ftime - pd.to_timedelta('{}h'.format(lout_step_h))).dt.strftime('%Y%m%d%H%M%S').values)
+            date1 = str((ftime + pd.to_timedelta('{}h'.format(last_btime.values))).dt.strftime('%Y%m%d%H%M%S').values)
+            t_stamps = pd.date_range(date1, date0, freq='{}H'.format(lout_step_h))
+            temp_data = dset.sel(time=t_stamps)
+            temp_data = temp_data.isel(pointspec=i,numpoint=i)
+            temp_data = temp_data['spec001_mr']
+            emission_field = flexdust_ds['Emission'].sel(time=t_stamps)
+            out_data_da[i] = re_map((temp_data*emission_field)*scale_factor, out_data_da[i].time,out_data_da[i].btime)
+            surf_sense_da[i] = re_map(temp_data,out_data_da[i].time,out_data_da[i].btime)    
     
     print('finish emsfield*sensitvity')
     dset = dset.assign({
