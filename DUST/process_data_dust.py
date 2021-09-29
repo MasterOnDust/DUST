@@ -1,3 +1,5 @@
+import IPython
+from IPython.terminal.embed import embed
 import numpy as np
 import xarray as xr
 import sys
@@ -84,11 +86,12 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     lout_step_h = int(lout_step/(60*60))
     btime_array = -np.arange(lout_step_h,btime_size*lout_step_h+lout_step_h,lout_step_h)
     # Create new time forward time dimmension
-    t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + dset['LAGE'].values
-
-    time_a = np.arange(0,len(dset['pointspec'])*lout_step_h,lout_step_h)
+    t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + pd.to_timedelta(dset['LAGE'].values, unit='ns')
+    # Assumes that the first part of the RELCOM string contains the date. 
+    time_a = pd.to_datetime([date.split(' ')[0] for date in dset.RELCOM.values],format='%Y%m%d%H').to_pydatetime()
+    time_a = date2num(time_a,units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%S')))
     time_var = xr.Variable('time',time_a, 
-                    attrs=dict(units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%S')),
+                    attrs=dict(units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%M:%S')),
                     calendar="proleptic_gregorian"))
     
     # create output DataArray
@@ -100,8 +103,8 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
         'btime': ('btime',btime_array, dict(
             long_name='time along back trajectory',
             units='hours')), 
-        'lon':('lon',dset['spec001_mr'].lon, dset.lon.attrs), 
-        'lat':('lat',dset['spec001_mr'].lat, dset.lat.attrs)},
+        'lon':('lon',dset['spec001_mr'].lon.data, dset.lon.attrs), 
+        'lat':('lat',dset['spec001_mr'].lat.data, dset.lat.attrs)},
         attrs=dict(
             spec_com=dset.spec001_mr.attrs['long_name'],
         ) 
@@ -117,15 +120,23 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     last_btime = out_data.btime[-1]
     first_btime =out_data.btime[0]
     time_units = out_data.time.units
-
-    for i in range(len(out_data.time)):
-        date0 = num2date(out_data[i].time + first_btime, time_units).strftime('%Y%m%d%H%M%S')
-        date1 = num2date(out_data[i].time + last_btime, time_units).strftime('%Y%m%d%H%M%S')
-        temp_data = dset['spec001_mr'].sel(time=slice(date0, date1), pointspec=i)
-        emission_field = flexdust_ds['Emission'].sel(time=temp_data.time)
+    out_data = out_data.to_dataset(name='spec001_mr') 
+    out_data = xr.decode_cf(out_data)
+    surface_sensitivity = surface_sensitivity.to_dataset(name='surface_sensitivity')
+    surface_sensitivity = xr.decode_cf(surface_sensitivity)
+    surf_sense_da = surface_sensitivity['surface_sensitivity']
+    out_data_da = out_data['spec001_mr']
+    for i,ftime in enumerate(out_data.time):
         
-        out_data[i] = (temp_data*emission_field).values*scale_factor
-        surface_sensitivity[i] = temp_data.values    
+        date0 = str((ftime - pd.to_timedelta('{}h'.format(lout_step_h))).dt.strftime('%Y%m%d%H%M%S').values)
+        date1 = str((ftime + pd.to_timedelta('{}h'.format(last_btime.values))).dt.strftime('%Y%m%d%H%M%S').values)
+        t_stamps = pd.date_range(date1, date0, freq='{}H'.format(lout_step_h))
+        temp_data = dset.sel(time=t_stamps)
+        temp_data = temp_data.isel(pointspec=i,numpoint=i)
+        temp_data = temp_data['spec001_mr']
+        emission_field = flexdust_ds['Emission'].sel(time=t_stamps)
+        out_data_da[i] = re_map((temp_data*emission_field)*scale_factor, out_data_da[i].time,out_data_da[i].btime)
+        surf_sense_da[i] = re_map(temp_data,out_data_da[i].time,out_data_da[i].btime)    
     
     print('finish emsfield*sensitvity')
     dset = dset.assign({
@@ -140,11 +151,19 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     dset.attrs['ibtime'] = t0.strftime('%H%M%S')
     receptor_name = str(dset.RELCOM[0].values).strip().split(' ')[1:]
     dset.attrs['relcom'] = receptor_name
-    return dset,out_data, surface_sensitivity
+    return dset,out_data_da, surf_sense_da
+
+def re_map(da, time_step, btime_vals):
+    da = da.rename({'time':'btime'})
+    # from IPython import embed; embed()
+    da = da[::-1,:,:]
+    da = da.assign_coords(time=time_step)
+    da = da.assign_coords(btime=btime_vals)
+    # da = da.expand_dims(dim='time')
+    return da
 
 def process_per_timestep(dset, flexdust_ds,x0,x1,y0,y1, height=None):
     dset = dset.sel(lon=slice(x0,x1), lat=slice(y0,y1))
-    
     #interpolate flexdust to match flexpart coordinates
     flexdust_ds = flexdust_ds.interp({'lon':dset.lon,'lat':dset.lat})    
     
