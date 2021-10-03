@@ -95,11 +95,7 @@ def _fix_time_flexdust(ncfile,**xarray_kwargs):
         s_hour = dset.starthour.values
         sTime = pd.to_datetime(s_date, format='%Y%m%d') + pd.to_timedelta(s_hour,unit='h') 
         time_index = np.unique(np.reshape(dset.Date.values,dset.Date.shape[0]*2))
-        # time_freq = int((time_index[1]- time_index[0])/60/60)
-        # nTimeSteps = len(time_index)-1
-        # time_index = pd.date_range(start='{}'.format(sTime.strftime('%Y%m%d %H:%M:%S').values[
-        #     0]), periods=nTimeSteps, freq='{}h'.format(time_freq))
-        dset = dset.assign_coords(time=time_index[1:])
+        dset = dset.assign_coords(time=time_index[:-1])
  
         dset.time.attrs = {'units': 'seconds since {}'.format(sTime[0].strftime('%Y-%m-%d %H:%M:%S')),
          'calendar':'proleptic_gregorian'}

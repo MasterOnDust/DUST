@@ -4,7 +4,6 @@ import sys
 from netCDF4 import date2num, num2date
 import pandas as pd
 import time
-import dask
 
 """
 AUTHOR Ove Haugvaldstad
@@ -76,8 +75,10 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     #interpolate flexdust to match flexpart coordinates
     flexdust_ds = flexdust_ds.interp({'lon':dset.lon,'lat':dset.lat})    
 
-    # Determine simulation start
-    sim_start = pd.to_datetime(dset.iedate+dset.ietime)
+
+    # Assumes that the first part of the RELCOM string contains the date. 
+    if isinstance(dset.RELCOM.values[0],np.bytes_):
+        dset = dset.assign(RELCOM=dset.RELCOM.astype(str))
 
     # Determine size of backward time dimmension
     lout_step = abs(dset.attrs['loutstep'])
@@ -87,16 +88,11 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     # Create new time forward time dimmension
     t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + pd.to_timedelta(dset['LAGE'].values, unit='ns')
     # Assumes that the first part of the RELCOM string contains the date. 
-    if isinstance(dset.RELCOM.values[0],np.bytes_):
-        dset = dset.assign(RELCOM=dset.RELCOM.astype(str))
-
-
     time_a = pd.to_datetime([date.split(' ')[0] for date in dset.RELCOM.values],format='%Y%m%d%H').to_pydatetime()
     time_a = date2num(time_a,units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%S')))
     time_var = xr.Variable('time',time_a, 
                     attrs=dict(units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%M:%S')),
                     calendar="proleptic_gregorian"))
-    
     # create output DataArray
     print('creating output array')
     out_data = xr.DataArray(np.zeros((len(dset['pointspec']),btime_size,len(dset['lat']),len(dset['lon'])),
@@ -115,31 +111,33 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
 
     surface_sensitivity = out_data.copy()
     if dset.ind_receptor == 3 or dset.ind_receptor == 4:
-        scale_factor = (1/(height))*1000 # Depostion is accumulative 
+        scale_factor = (1/(height))*1000 # Deposition is accumulative 
     else:
         # Concentration is not  accumulative Units of FLEXDUST need to be g/m^3s
         scale_factor = (1/(height*lout_step))*1000 
     # print(scale_factor)
-    last_btime = out_data.btime[-1]
-    first_btime =out_data.btime[0]
+    last_btime = out_data.btime[-1].values
+    first_btime =out_data.btime[0].values
     time_units = out_data.time.units
-    out_data = out_data.to_dataset(name='spec001_mr') 
-    out_data = xr.decode_cf(out_data)
-    surface_sensitivity = surface_sensitivity.to_dataset(name='surface_sensitivity')
-    surface_sensitivity = xr.decode_cf(surface_sensitivity)
-    surf_sense_da = surface_sensitivity['surface_sensitivity']
-    out_data_da = out_data['spec001_mr']
-    for i,ftime in enumerate(out_data.time):
-        with dask.config.set(**{'array.slicing.split_large_chunks': False}):
-            date0 = str((ftime - pd.to_timedelta('{}h'.format(lout_step_h))).dt.strftime('%Y%m%d%H%M%S').values)
-            date1 = str((ftime + pd.to_timedelta('{}h'.format(last_btime.values))).dt.strftime('%Y%m%d%H%M%S').values)
-            t_stamps = pd.date_range(date1, date0, freq='{}H'.format(lout_step_h))
-            temp_data = dset.sel(time=t_stamps)
-            temp_data = temp_data.isel(pointspec=i,numpoint=i)
-            temp_data = temp_data['spec001_mr']
-            emission_field = flexdust_ds['Emission'].sel(time=t_stamps)
-            out_data_da[i] = re_map((temp_data*emission_field)*scale_factor, out_data_da[i].time,out_data_da[i].btime)
-            surf_sense_da[i] = re_map(temp_data,out_data_da[i].time,out_data_da[i].btime)    
+    
+    dset = dset.sortby('time')
+
+    for i in range(len(out_data.time)):
+        date0 = out_data[i].time.values + first_btime
+        date1 = out_data[i].time.values + last_btime
+        date0 = num2date(date0, time_units).strftime('%Y%m%d%H%M%S')
+        date1 = num2date(date1, time_units).strftime('%Y%m%d%H%M%S')
+        temp_data = dset['spec001_mr'].sel(time=slice(date1, date0), pointspec=i)
+        
+        emission_field = flexdust_ds['Emission'].sel(time=temp_data.time)
+        
+        da = (temp_data*emission_field)*scale_factor
+        da = da.rename(time='btime')
+        da = da[::-1].assign_coords(btime=out_data.btime)
+        out_data[i] = da
+        surf_sens_da = temp_data.rename(time='btime')
+        surf_sens_da = surf_sens_da[::-1].assign_coords(btime=out_data.btime)
+        surface_sensitivity[i] = surf_sens_da    
     
     print('finish emsfield*sensitvity')
     dset = dset.assign({
@@ -154,19 +152,11 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     dset.attrs['ibtime'] = t0.strftime('%H%M%S')
     receptor_name = str(dset.RELCOM[0].values).strip().split(' ')[1:]
     dset.attrs['relcom'] = receptor_name
-    return dset,out_data_da, surf_sense_da
-
-def re_map(da, time_step, btime_vals):
-    da = da.rename({'time':'btime'})
-    # from IPython import embed; embed()
-    da = da[::-1,:,:]
-    da = da.assign_coords(time=time_step)
-    da = da.assign_coords(btime=btime_vals)
-    # da = da.expand_dims(dim='time')
-    return da
+    return dset,out_data, surface_sensitivity
 
 def process_per_timestep(dset, flexdust_ds,x0,x1,y0,y1, height=None):
     dset = dset.sel(lon=slice(x0,x1), lat=slice(y0,y1))
+    
     #interpolate flexdust to match flexpart coordinates
     flexdust_ds = flexdust_ds.interp({'lon':dset.lon,'lat':dset.lat})    
     
