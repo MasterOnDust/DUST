@@ -5,13 +5,14 @@ import pandas as pd
 from DUST.process_data_dust import process_per_pointspec, create_output
 import pytest
 
-def create_flexdust_test_data(seed=None):
+def create_flexdust_test_data(lons,lats,seed=None):
+    rs = np.random.RandomState(seed)
     time_vals = np.arange(10800, 10800*8*24,10800)
     time_var = xr.Variable('time',time_vals,attrs={'units':'seconds since 2000-03-01 00:00:00','calendar':'proleptic_gregorian'})
-    longitude = xr.Variable('lon',np.arange(75,86,0.5))
-    latitude = xr.Variable('lat', np.arange(30,35,0.5))
-    da = xr.DataArray(data=np.random.rand(len(time_var),10,22),
-        dims={'time' : len(time_var), 'lat':10, 'lon':22},
+    longitude = xr.Variable('lon',lons)
+    latitude = xr.Variable('lat', lats)
+    da = xr.DataArray(data=rs.rand(len(time_var),len(latitude),len(longitude)),
+        dims={'time' : len(time_var), 'lat':len(latitude), 'lon':len(longitude)},
         coords={'time':time_var, 'lat':latitude, 'lon':longitude}
         )
     ds=xr.Dataset({'Emission':da},
@@ -20,15 +21,15 @@ def create_flexdust_test_data(seed=None):
     ds = xr.decode_cf(ds)
     return ds
 
-def create_test_data(seed=None, ind_receptor=1):
+def create_test_data(seed=None, ind_receptor=1, lons=np.arange(75,86,0.5), lats= np.arange(30,35,0.5)):
     
     rs = np.random.RandomState(seed)
     time_var = pd.date_range("2000-03-10", periods=80, freq='3H')
     rel_com_time = time_var.strftime('%Y%m%d%H')[::-1][:9]
     time_var = xr.Variable('time',time_var[::-1][1:])
     
-    longitude = xr.Variable('longitude',np.arange(75,86,0.5))
-    latitude = xr.Variable('latitude', np.arange(30,35,0.5))
+    longitude = xr.Variable('longitude',lons)
+    latitude = xr.Variable('latitude', lats)
     height = xr.Variable('height',[100, 1000, 5000])
     relcom = xr.Variable('numpoint', ['{} TEST_RELEASE'.format(ts) for ts in rel_com_time])
     rellat = xr.Variable('numpoint', [32.3 for i in range(9)])
@@ -37,8 +38,8 @@ def create_test_data(seed=None, ind_receptor=1):
     relz2 =xr.Variable('numpoint', [30 for i in range(9)])
     relpart =xr.Variable('numpoint', [3000 for i in range(9)])
 
-    da = xr.DataArray(data=np.random.rand(1,9,79,3,10,22),
-        dims={'nageclass':1, 'pointspec':9, 'time' : 79, 'height':3, 'latitude':10, 'longitude':22},
+    da = xr.DataArray(data=rs.rand(1,9,79,3,len(latitude),len(longitude)),
+        dims={'nageclass':1, 'pointspec':9, 'time' : 79, 'height':3, 'latitude':len(latitude), 'longitude':len(longitude)},
         coords={'time':time_var, 'latitude':latitude, 'longitude':longitude, 'height':height},
         attrs={'long_name':'Test-Spec'}
         )
@@ -67,7 +68,7 @@ def create_test_data(seed=None, ind_receptor=1):
 def test_region_slicing():
     fds= create_flexdust_test_data(seed=None)
     fpds = create_test_data(seed=None)
-    ds_orr,surface_sensitivity, pre_ds = process_per_pointspec(fpds,fds,x0=76, x1=80, y0=31, y1=34,height=100)
+    ds_orr,surface_sensitivity, pre_ds = process_per_pointspec(fpds,fds,x0=76, x1=80, y0=31, y1=34,height=100)  
     ns_ds_orr,ns_surface_sensitivity, ns_pre_ds = process_per_pointspec(fpds,fds,
                         x0=None, x1=None, y0=None,y1=None,height=100)
     ns_pre_ds = ns_pre_ds.sel(lon=slice(x0=76,x1=80), lat=slice(y0=31,y1=34))
