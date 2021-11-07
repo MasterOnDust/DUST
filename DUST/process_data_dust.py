@@ -75,8 +75,10 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     #interpolate flexdust to match flexpart coordinates
     flexdust_ds = flexdust_ds.interp({'lon':dset.lon,'lat':dset.lat})    
 
-    # Determine simulation start
-    sim_start = pd.to_datetime(dset.iedate+dset.ietime)
+
+    # Assumes that the first part of the RELCOM string contains the date. 
+    if isinstance(dset.RELCOM.values[0],np.bytes_):
+        dset = dset.assign(RELCOM=dset.RELCOM.astype(str))
 
     # Determine size of backward time dimmension
     lout_step = abs(dset.attrs['loutstep'])
@@ -84,13 +86,13 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
     lout_step_h = int(lout_step/(60*60))
     btime_array = -np.arange(lout_step_h,btime_size*lout_step_h+lout_step_h,lout_step_h)
     # Create new time forward time dimmension
-    t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + dset['LAGE'].values
-
-    time_a = np.arange(0,len(dset['pointspec'])*lout_step_h,lout_step_h)
+    t0 = pd.to_datetime(dset.ibdate+dset.ibtime) + pd.to_timedelta(dset['LAGE'].values, unit='ns')
+    # Assumes that the first part of the RELCOM string contains the date. 
+    time_a = pd.to_datetime([date.split(' ')[0] for date in dset.RELCOM.values],format='%Y%m%d%H').to_pydatetime()
+    time_a = date2num(time_a,units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%S')))
     time_var = xr.Variable('time',time_a, 
-                    attrs=dict(units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%S')),
+                    attrs=dict(units='hours since {}'.format(t0.strftime('%Y-%m-%d %H:%M:%S')),
                     calendar="proleptic_gregorian"))
-    
     # create output DataArray
     print('creating output array')
     out_data = xr.DataArray(np.zeros((len(dset['pointspec']),btime_size,len(dset['lat']),len(dset['lon'])),
@@ -100,8 +102,8 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
         'btime': ('btime',btime_array, dict(
             long_name='time along back trajectory',
             units='hours')), 
-        'lon':('lon',dset['spec001_mr'].lon, dset.lon.attrs), 
-        'lat':('lat',dset['spec001_mr'].lat, dset.lat.attrs)},
+        'lon':('lon',dset['spec001_mr'].lon.data, dset.lon.attrs), 
+        'lat':('lat',dset['spec001_mr'].lat.data, dset.lat.attrs)},
         attrs=dict(
             spec_com=dset.spec001_mr.attrs['long_name'],
         ) 
@@ -109,23 +111,33 @@ def process_per_pointspec(dset,flexdust_ds, x0,x1,y0,y1, height=None):
 
     surface_sensitivity = out_data.copy()
     if dset.ind_receptor == 3 or dset.ind_receptor == 4:
-        scale_factor = (1/(height))*1000 # Depostion is accumulative 
+        scale_factor = (1/(height))*1000 # Deposition is accumulative 
     else:
         # Concentration is not  accumulative Units of FLEXDUST need to be g/m^3s
         scale_factor = (1/(height*lout_step))*1000 
     # print(scale_factor)
-    last_btime = out_data.btime[-1]
-    first_btime =out_data.btime[0]
+    last_btime = out_data.btime[-1].values
+    first_btime =out_data.btime[0].values
     time_units = out_data.time.units
+    
+    dset = dset.sortby('time')
 
     for i in range(len(out_data.time)):
-        date0 = num2date(out_data[i].time + first_btime, time_units).strftime('%Y%m%d%H%M%S')
-        date1 = num2date(out_data[i].time + last_btime, time_units).strftime('%Y%m%d%H%M%S')
-        temp_data = dset['spec001_mr'].sel(time=slice(date0, date1), pointspec=i)
+        date0 = out_data[i].time.values + first_btime
+        date1 = out_data[i].time.values + last_btime
+        date0 = num2date(date0, time_units).strftime('%Y%m%d%H%M%S')
+        date1 = num2date(date1, time_units).strftime('%Y%m%d%H%M%S')
+        temp_data = dset['spec001_mr'].sel(time=slice(date1, date0), pointspec=i)
+        
         emission_field = flexdust_ds['Emission'].sel(time=temp_data.time)
         
-        out_data[i] = (temp_data*emission_field).values*scale_factor
-        surface_sensitivity[i] = temp_data.values    
+        da = (temp_data*emission_field)*scale_factor
+        da = da.rename(time='btime')
+        da = da[::-1].assign_coords(btime=out_data.btime)
+        out_data[i] = da
+        surf_sens_da = temp_data.rename(time='btime')
+        surf_sens_da = surf_sens_da[::-1].assign_coords(btime=out_data.btime)
+        surface_sensitivity[i] = surf_sens_da    
     
     print('finish emsfield*sensitvity')
     dset = dset.assign({
