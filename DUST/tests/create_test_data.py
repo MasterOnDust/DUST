@@ -6,12 +6,12 @@ from DUST.process_data_dust import process_per_pointspec, create_output
 import pytest
 
 def create_flexdust_test_data(lons,lats,seed=None):
-    rs = np.random.RandomState(seed)
+    np.random.seed(seed)
     time_vals = np.arange(10800, 10800*8*24,10800)
     time_var = xr.Variable('time',time_vals,attrs={'units':'seconds since 2000-03-01 00:00:00','calendar':'proleptic_gregorian'})
     longitude = xr.Variable('lon',lons)
     latitude = xr.Variable('lat', lats)
-    da = xr.DataArray(data=rs.rand(len(time_var),len(latitude),len(longitude)),
+    da = xr.DataArray(data=np.random.randint(0,10,(len(time_var),len(latitude),len(longitude))),
         dims={'time' : len(time_var), 'lat':len(latitude), 'lon':len(longitude)},
         coords={'time':time_var, 'lat':latitude, 'lon':longitude}
         )
@@ -22,8 +22,8 @@ def create_flexdust_test_data(lons,lats,seed=None):
     return ds
 
 def create_test_data(seed=None, ind_receptor=1, lons=np.arange(75,86,0.5), lats= np.arange(30,35,0.5)):
-    
-    rs = np.random.RandomState(seed)
+    np.random.seed(seed)
+
     time_var = pd.date_range("2000-03-10", periods=80, freq='3H')
     rel_com_time = time_var.strftime('%Y%m%d%H')[::-1][:9]
     time_var = xr.Variable('time',time_var[::-1][1:])
@@ -38,7 +38,7 @@ def create_test_data(seed=None, ind_receptor=1, lons=np.arange(75,86,0.5), lats=
     relz2 =xr.Variable('numpoint', [30 for i in range(9)])
     relpart =xr.Variable('numpoint', [3000 for i in range(9)])
 
-    da = xr.DataArray(data=rs.rand(1,9,79,3,len(latitude),len(longitude)),
+    da = xr.DataArray(data=np.random.randint(0,10,(1,9,79,3,len(latitude),len(longitude))),
         dims={'nageclass':1, 'pointspec':9, 'time' : 79, 'height':3, 'latitude':len(latitude), 'longitude':len(longitude)},
         coords={'time':time_var, 'latitude':latitude, 'longitude':longitude, 'height':height},
         attrs={'long_name':'Test-Spec'}
