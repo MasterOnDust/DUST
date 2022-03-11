@@ -1,20 +1,27 @@
-
 import numpy as np
 import xarray as xr
 import pandas as pd
 import argparse as ap
 
-def arg_parser(description='FLEX parser'):
+
+def arg_parser(description="FLEX parser"):
     parser = ap.ArgumentParser(description=description)
-    parser.add_argument('path', help='Path to top directory containing output')
-    parser.add_argument('--outpath', '--op', help='Where the output should be stored', default='.')
-    parser.add_argument('--locations', '--loc', help='Number of location to apply fuction to', default=None, nargs='+', type=int)
-    parser.add_argument('--sdate', '--sd', help='Begining of time slice')
-    parser.add_argument('--edate', '--ed', help='End of time slice')
-    
+    parser.add_argument("path", help="Path to top directory containing output")
+    parser.add_argument(
+        "--outpath", "--op", help="Where the output should be stored", default="."
+    )
+    parser.add_argument(
+        "--locations",
+        "--loc",
+        help="Number of location to apply fuction to",
+        default=None,
+        nargs="+",
+        type=int,
+    )
+    parser.add_argument("--sdate", "--sd", help="Begining of time slice")
+    parser.add_argument("--edate", "--ed", help="End of time slice")
+
     return parser
-
-
 
 
 def set_varName(dset, varName):
@@ -25,38 +32,38 @@ def set_varName(dset, varName):
         will use to acess the data.
 
     """
-    dset = dset.assign_attrs({'varName':varName})
+    dset = dset.assign_attrs({"varName": varName})
     return dset
+
+
 def multiply_area(dset, area=None):
 
     """
     DESCRIPTION:
     ===========
-        Muliply gridded data by it's area, if the data set does not 
-        contain an area variable, the area dataarray need to be provided. 
+        Muliply gridded data by it's area, if the data set does not
+        contain an area variable, the area dataarray need to be provided.
 
     """
     if area == None:
         try:
             area = dset.area.values
         except AttributeError:
-            print('dataset does not contain a datavariable called area')
+            print("dataset does not contain a datavariable called area")
 
     with xr.set_options(keep_attributes=True):
-        area_multiplied = dset[dset.varName]*area
-    
+        area_multiplied = dset[dset.varName] * area
+
     return area_multiplied
 
 
-
-def region_slice(dset, x0=None, x1=None
-                        , y0=None, y1=None):
+def region_slice(dset, x0=None, x1=None, y0=None, y1=None):
 
     """
     DESCRIPTION:
     ===========
         Returns lon / lat rectangle slice of a xarray data set
-        
+
     USAGE:
     =====
         sliced_dataset = region(dset, x0, x1, y0, y1)
@@ -70,8 +77,8 @@ def region_slice(dset, x0=None, x1=None
         returns : xarray.dataset
 
     """
-    
-    if x0 == None: 
+
+    if x0 == None:
         x0 = dset.lon.min()
     if x1 == None:
         x1 = dset.lon.max()
@@ -79,26 +86,30 @@ def region_slice(dset, x0=None, x1=None
         y0 = dset.lat.min()
     if y1 == None:
         y1 = dset.lat.max()
-    return dset.where((((dset.lon >= x0) & (dset.lon <= x1)) & 
-                        ((dset.lat >= y0) & (dset.lat <= y1))), drop=True)
+    return dset.where(
+        (((dset.lon >= x0) & (dset.lon <= x1)) & ((dset.lat >= y0) & (dset.lat <= y1))),
+        drop=True,
+    )
 
 
-
-
-def _fix_time_flexdust(ncfile,**xarray_kwargs):
+def _fix_time_flexdust(ncfile, **xarray_kwargs):
     """Fixes the time in FLEXDUST"""
-    dset = xr.open_dataset(ncfile, decode_times=False,**xarray_kwargs)
-    if dset.time.attrs.get('units',None) != None:
+    dset = xr.open_dataset(ncfile, decode_times=False, **xarray_kwargs)
+    if dset.time.attrs.get("units", None) != None:
         dset = xr.decode_cf(dset)
     else:
-        s_date = dset.startdate.values 
+        s_date = dset.startdate.values
         s_hour = dset.starthour.values
-        sTime = pd.to_datetime(s_date, format='%Y%m%d') + pd.to_timedelta(s_hour,unit='h') 
-        time_index = np.unique(np.reshape(dset.Date.values,dset.Date.shape[0]*2))
+        sTime = pd.to_datetime(s_date, format="%Y%m%d") + pd.to_timedelta(
+            s_hour, unit="h"
+        )
+        time_index = np.unique(np.reshape(dset.Date.values, dset.Date.shape[0] * 2))
         dset = dset.assign_coords(time=time_index[:-1])
- 
-        dset.time.attrs = {'units': 'seconds since {}'.format(sTime[0].strftime('%Y-%m-%d %H:%M:%S')),
-         'calendar':'proleptic_gregorian'}
-        dset = dset.drop_dims('time_s')
+
+        dset.time.attrs = {
+            "units": "seconds since {}".format(sTime[0].strftime("%Y-%m-%d %H:%M:%S")),
+            "calendar": "proleptic_gregorian",
+        }
+        dset = dset.drop_dims("time_s")
         dset = xr.decode_cf(dset)
     return dset
