@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "dust"
+version = "0.1.1"
+description = "Post processing of FLEXPART / FLEXDUST dust transport simulations"
+authors = ["Ove Haugvaldstad <ovehaugv@outlook.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+xarray = "^2022.3.0"
+netCDF4 = "^1.5.8"
+numpy = "^1.22.3"
+Cartopy = "^0.20.2"
+pandas = "^1.4.1"
+matplotlib = "^3.5.1"
+
+[tool.poetry.dev-dependencies]
+ipython = "^8.1.1"
+conda-lock = "^1.0.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

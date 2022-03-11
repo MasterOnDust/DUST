@@ -1,0 +1,8 @@
+name: /cluster/home/ovewh/dust_env
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - geos
+  - proj
+prefix: /cluster/home/ovewh/dust_env
