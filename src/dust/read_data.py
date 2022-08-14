@@ -444,3 +444,26 @@ def read_grib_data(path, shortName=None, **dset_kwargs):
         ds_grib = ds_grib.assign_attrs({"varName": shortName})
 
     return ds_grib
+
+
+def read_wetprecip_data(path):
+    """
+    DESCRIPTION
+    ===========
+        Reads FLEXPART precip data wetscav_precip.txt
+        returns  pandas dataframe
+
+    """
+    with open(path, 'r') as f:
+        data = f.readlines()
+        combined = []
+        for p1, p2 in zip(data[::2], data[1::2]):
+            combined.append(p1[:-1]+p2[:-1])
+    combined = pd.DataFrame(combined)
+    d = combined[0].str.extract(r'(?P<date>\d{8})(\s*\d{1}[1-9]{0,2})', expand=False)
+    combined.index=pd.to_datetime(d['date'].str.cat(d[1].str.strip(), sep='-'), format='%Y%m%d-%H')
+    combined = combined.drop_duplicates()
+    combined = combined[0].str.extract(r'(?P<lsp>\s\d[.]\S\d*\S+\d{2})(?P<convprec>\s+\d[.]\S\d*\S+\d{2})')
+    combined = combined.astype(float)
+    combined = combined.sort_index()
+    return combined
