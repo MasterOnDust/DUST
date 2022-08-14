@@ -5,4 +5,5 @@ dependencies:
   - python=3.8
   - geos
   - proj
+  - poetry
 prefix: /cluster/home/ovewh/dust_env
