@@ -12,8 +12,6 @@ import matplotlib.ticker as mticker
 
 from shapely.geometry import LineString, MultiLineString
 
-from IPython import embed
-
 
 def tracing_the_winds_map(ax):
     """

@@ -6,7 +6,6 @@ import dust
 import os
 from dust.process_data_dust import process_per_pointspec, process_per_timestep, create_output
 import pandas as pd
-from IPython import embed
 import dask
 """
 AUTHOR
@@ -42,7 +41,7 @@ def main():
     height = args.height
     use_dask = args.use_dask
 
-    flexdust_ds = DUST.read_flexdust_output(pathflexdust)['dset']
+    flexdust_ds = dust.read_flexdust_output(pathflexdust)['dset']
     flexdust_ds = flexdust_ds.sel(lon=slice(x0,x1), lat=slice(y0,y1))
     # Check whether output is per time step or per release?
 

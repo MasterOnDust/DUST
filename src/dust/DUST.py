@@ -8,8 +8,6 @@ import glob
 import xarray as xr
 import xarray
 
-from IPython import embed
-
 from .utils.utils import multiply_area
 
 
