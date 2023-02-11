@@ -16,7 +16,7 @@ matplotlib = "^3.5.1"
 dask = "^2022.2.1"
 
 [tool.poetry.dev-dependencies]
-ipython = "^8.1.1"
+ipython = "^8.10.0"
 conda-lock = "^1.0.2"
 
 [tool.poetry.scripts]
