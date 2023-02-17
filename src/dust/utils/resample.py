@@ -69,7 +69,10 @@ def concatenate_monthly(dsets):
                     )
                 )
             )
-        dsets[i] = dset.drop(labels=["RELSTART", "RELEND", "RELPART"])
+        if "RELSTART" in dset.data_vars:
+            dsets[i] = dset.drop(labels=["RELSTART", "RELEND"])
+        if "RELPART" in dset.data_vars:
+            dsets[i] = dset.drop(labels="RELPART")
     out_dset = xr.concat(dsets, "time", data_vars=[varName, "surface_sensitivity"])
 
     out_dset.attrs["ibdate"] = dsets[0].attrs["ibdate"]
