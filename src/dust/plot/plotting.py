@@ -263,7 +263,7 @@ def mpl_base_map_plot_xr(
 
         dataarray = xr.where((dataarray > vmin), dataarray, np.nan)
         dataarray.attrs = attrs
-    if log:
+    if log and not norm:
         levels = _gen_log_clevs(dat_min, dat_max)
         norm = mpl.colors.LogNorm(vmin=levels[0], vmax=levels[-1])
     elif norm:

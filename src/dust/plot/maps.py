@@ -155,10 +155,10 @@ def map_terrain_china(ax=None):
     if ax == None:
         ax = plt.gca()
 
-    stamen_terrain = cimgt.Stamen("terrain-background")
+    stamen_terrain = cimgt.Stamen("terrain-background", desired_tile_form="L")
 
     ax = map_china(ax)
-    ax.add_image(stamen_terrain, 7)
+    ax.add_image(stamen_terrain, 7, cmap="gray")
     ax.add_feature(cr.feature.RIVERS)
     ax.add_feature(cr.feature.LAKES)
     return ax
