@@ -10,7 +10,7 @@ python = "^3.8"
 xarray = "^2022.3.0"
 netCDF4 = "^1.5.8"
 numpy = "^1.22.3"
-Cartopy = "^0.20.2"
+Cartopy = {version="^0.20.2",optional=true}
 pandas = "^1.4.1"
 matplotlib = "^3.5.1"
 dask = "^2022.2.1"
@@ -21,6 +21,9 @@ conda-lock = "^1.0.2"
 
 [tool.poetry.scripts]
 process_flexpart="dust.scripts.process_flexpart:main"
+
+[tool.poetry.extras]
+plotting = ["Cartopy"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
