@@ -9,7 +9,7 @@ import matplotlib.patheffects as PathEffects
 import matplotlib.colors as mcolors
 from matplotlib.ticker import ScalarFormatter, AutoMinorLocator
 import matplotlib.ticker as mticker
-
+import matplotlib.cm as cm
 from shapely.geometry import LineString, MultiLineString
 
 
@@ -135,7 +135,7 @@ def tracing_the_winds_map(ax):
     return ax
 
 
-def map_terrain_china(ax=None):
+def map_terrain_china(ax=None, alpha=.7):
     """
     DESCRIPTION
     ===========
@@ -155,10 +155,10 @@ def map_terrain_china(ax=None):
     if ax == None:
         ax = plt.gca()
 
-    stamen_terrain = cimgt.Stamen("terrain-background", desired_tile_form="L")
+    satellite =cimgt.GoogleTiles(style="satellite", desired_tile_form="RGB", cache=True)
 
     ax = map_china(ax)
-    ax.add_image(stamen_terrain, 7, cmap="gray")
+    ax.add_image(satellite, 7,alpha=alpha)
     ax.add_feature(cr.feature.RIVERS)
     ax.add_feature(cr.feature.LAKES)
     return ax
